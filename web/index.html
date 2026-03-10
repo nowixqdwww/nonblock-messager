@@ -131,6 +131,12 @@
                     <div class="field-value" id="modalUsername"></div>
                 </div>
 
+                <!-- НОВОЕ: О себе -->
+                <div class="profile-view-field">
+                    <label>О себе</label>
+                    <div class="field-value" id="modalBio"></div>
+                </div>
+
                 <div class="profile-view-field">
                     <label>Телефон</label>
                     <div class="field-value" id="modalPhone"></div>
@@ -170,6 +176,12 @@
                     <label>Username</label>
                     <input type="text" id="editUsername" placeholder="@username">
                 </div>
+                
+                <!-- НОВОЕ: О себе -->
+                <div class="edit-field">
+                    <label>О себе</label>
+                    <textarea id="editBio" placeholder="Расскажите о себе..." rows="3" class="bio-textarea"></textarea>
+                </div>
 
                 <!-- Кнопки действий -->
                 <div class="edit-actions">
@@ -181,9 +193,15 @@
     </div>
 </div>
 
+<!-- Контекстное меню для сообщений -->
+<div id="messageContextMenu" class="context-menu" style="display: none;">
+    <div class="context-menu-item delete" onclick="deleteMessage()">Удалить сообщение</div>
+</div>
+
 <!-- Уведомления -->
 <div id="toast" class="toast"></div>
 
 <script src="/app.js"></script>
 </body>
 </html>
+
