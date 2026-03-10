@@ -944,3 +944,45 @@ body {
         transition: none;
     }
 }
+
+/* Бейдж с количеством непрочитанных сообщений */
+.unread-badge {
+    background: #667eea;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    margin-left: auto;
+    margin-right: 10px;
+    animation: none; /* Без анимации */
+}
+
+/* Активный чат */
+.chatItem.active {
+    background: #2f3a4a;
+}
+
+.chatItem.active .unread-badge {
+    background: white;
+    color: #667eea;
+}
+
+/* Для мобильных */
+@media (max-width: 768px) {
+    .unread-badge {
+        min-width: 18px;
+        height: 18px;
+        font-size: 11px;
+    }
+}
+
+/* Убираем все анимации */
+.chatItem, .unread-badge, .chat-avatar, .chat-name, .chat-last-message {
+    transition: none;
+}
