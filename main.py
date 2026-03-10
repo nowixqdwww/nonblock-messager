@@ -109,7 +109,15 @@ async def get_user(phone: str):
         await conn.close()
         
         if user:
-            avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
+            # Экранируем спецсимволы в URL
+            avatar_filename = user['avatar']
+            avatar_url = ""
+            if avatar_filename:
+                # Кодируем спецсимволы в имени файла
+                import urllib.parse
+                encoded_filename = urllib.parse.quote(avatar_filename)
+                avatar_url = f"/avatars/{encoded_filename}"
+            
             return {
                 "phone": user['phone'],
                 "username": user['username'],
@@ -121,7 +129,7 @@ async def get_user(phone: str):
     except Exception as e:
         logger.error(f"Error getting user {phone}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
-
+        
 @app.post("/username")
 async def change_username(data: UsernameUpdate):
     try:
@@ -265,7 +273,12 @@ async def search_user(data: SearchUser):
         if not user:
             return {"found": False}
         
-        avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
+        avatar_filename = user['avatar']
+        avatar_url = ""
+        if avatar_filename:
+            import urllib.parse
+            encoded_filename = urllib.parse.quote(avatar_filename)
+            avatar_url = f"/avatars/{encoded_filename}"
         return {
             "found": True,
             "phone": user['phone'],
@@ -317,7 +330,12 @@ async def get_users(me: str):
             ''', me, phone)
             
             display_name = user_data['name'] or user_data['username'] or phone
-            avatar_url = f"/avatars/{user_data['avatar']}" if user_data['avatar'] else ""
+            avatar_filename = user_data['avatar']
+            avatar_url = ""
+            if avatar_filename:
+                import urllib.parse
+                encoded_filename = urllib.parse.quote(avatar_filename)
+                avatar_url = f"/avatars/{encoded_filename}"
             
             result.append({
                 "phone": user_data['phone'],
@@ -467,4 +485,5 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
 
