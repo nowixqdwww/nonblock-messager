@@ -10,6 +10,12 @@ let pingInterval = null
 let isConnected = false
 let selectedMessageId = null
 let selectedMessageElement = null
+let selectedChatPhone = null
+let selectedChatElement = null
+
+// Для долгого нажатия
+let longPressTimer = null
+let longPressTarget = null
 
 // Глобальный объект для хранения онлайн статусов
 window.clients = {}
@@ -158,7 +164,7 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         document.getElementById('modalName').innerText = user.name || 'Не указано'
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
-        document.getElementById('modalBio').innerText = user.bio || 'Не указано' // НОВОЕ
+        document.getElementById('modalBio').innerText = user.bio || 'Не указано'
         document.getElementById('modalPhone').innerText = formatPhone(user.phone)
         
         let isOnline = false
@@ -182,7 +188,7 @@ async function showUserProfile(phone, isMyProfile = false) {
             editBtn.onclick = () => {
                 document.getElementById('editName').value = user.name || ''
                 document.getElementById('editUsername').value = user.username || ''
-                document.getElementById('editBio').value = user.bio || '' // НОВОЕ
+                document.getElementById('editBio').value = user.bio || ''
                 
                 const previewAvatar = document.getElementById('previewAvatarText')
                 if (user.avatar) {
@@ -308,7 +314,7 @@ async function removeAvatar() {
 async function saveProfile() {
     const username = document.getElementById('editUsername').value.trim()
     const name = document.getElementById('editName').value.trim()
-    const bio = document.getElementById('editBio').value.trim() // НОВОЕ
+    const bio = document.getElementById('editBio').value.trim()
     
     if (!username) {
         showToast("Введите username")
@@ -333,7 +339,7 @@ async function saveProfile() {
                 phone: currentUser,
                 username: username,
                 name: name || username.substring(1),
-                bio: bio // НОВОЕ
+                bio: bio
             })
         })
         
@@ -366,6 +372,133 @@ function cancelEdit() {
 function closeModal() {
     document.getElementById('profileModal').classList.remove('show')
 }
+
+// Функция для показа контекстного меню
+function showContextMenu(event, type, data) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    // Закрываем все открытые меню
+    document.getElementById('messageContextMenu').style.display = 'none'
+    document.getElementById('chatContextMenu').style.display = 'none'
+    
+    let menu
+    let menuId
+    
+    if (type === 'message') {
+        menuId = 'messageContextMenu'
+        selectedMessageId = data.messageId
+        selectedMessageElement = data.element
+    } else if (type === 'chat') {
+        menuId = 'chatContextMenu'
+        selectedChatPhone = data.phone
+        selectedChatElement = data.element
+    }
+    
+    menu = document.getElementById(menuId)
+    
+    // Получаем координаты
+    let x, y
+    
+    if (event.touches) {
+        // Мобильное устройство
+        x = event.touches[0].pageX
+        y = event.touches[0].pageY
+        event.preventDefault()
+    } else {
+        // ПК
+        x = event.pageX
+        y = event.pageY
+    }
+    
+    // Позиционируем меню
+    menu.style.display = 'block'
+    menu.style.left = x + 'px'
+    menu.style.top = y + 'px'
+    
+    // Проверяем границы экрана
+    setTimeout(() => {
+        const rect = menu.getBoundingClientRect()
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (window.innerWidth - rect.width - 10) + 'px'
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (window.innerHeight - rect.height - 10) + 'px'
+        }
+    }, 0)
+}
+
+// Обработчик долгого нажатия
+function handleLongPress(event, type, data) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    if (longPressTimer) {
+        clearTimeout(longPressTimer)
+    }
+    
+    longPressTarget = { type, data, event }
+    
+    longPressTimer = setTimeout(() => {
+        if (longPressTarget) {
+            if (window.navigator.vibrate) {
+                window.navigator.vibrate(50)
+            }
+            showContextMenu(
+                longPressTarget.event,
+                longPressTarget.type,
+                longPressTarget.data
+            )
+            longPressTarget = null
+        }
+    }, 500)
+}
+
+// Обработчик окончания касания
+function handleTouchEnd() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+    }
+    longPressTarget = null
+}
+
+// Обработчик движения пальца
+function handleTouchMove() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+    }
+    longPressTarget = null
+}
+
+// Скрыть все контекстные меню
+function hideContextMenus() {
+    document.getElementById('messageContextMenu').style.display = 'none'
+    document.getElementById('chatContextMenu').style.display = 'none'
+    selectedMessageId = null
+    selectedMessageElement = null
+    selectedChatPhone = null
+    selectedChatElement = null
+}
+
+// Закрытие меню при клике вне
+document.addEventListener('click', hideContextMenus)
+document.addEventListener('touchstart', hideContextMenus)
+
+// Предотвращаем стандартное контекстное меню
+document.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.message') || e.target.closest('.chatItem')) {
+        e.preventDefault()
+    }
+})
+
+// Предотвращаем выделение на мобильных
+document.addEventListener('selectstart', (e) => {
+    if (e.target.closest('.message') || e.target.closest('.chatItem')) {
+        e.preventDefault()
+    }
+})
 
 // Подключение WebSocket
 function connect() {
@@ -400,26 +533,17 @@ function connect() {
 
                 if (data.action === 'pong') return
 
-                if (data.action === "message_sent") {
-                    // Сообщение отправлено, создаем/обновляем чат
-                    updateSingleChat(data.to, true)
-                }
-
                 if (data.action === "message") {
                     addMessage(data.from, data.text, data.id)
                     
-                    // Проверяем, есть ли уже чат
                     const existingChat = document.getElementById(`chat-${data.from}`)
                     
                     if (!existingChat) {
-                        // Если чата нет - создаем новый
                         updateSingleChat(data.from, true)
                     } else {
-                        // Если чат есть - поднимаем наверх и обновляем последнее сообщение
                         const list = document.getElementById("chatList")
                         list.prepend(existingChat)
                         
-                        // Обновляем последнее сообщение
                         const lastMsgElement = existingChat.querySelector('.chat-last-message')
                         if (lastMsgElement) {
                             lastMsgElement.innerText = data.text
@@ -429,15 +553,15 @@ function connect() {
                     if (currentChat !== data.from) {
                         unreadCounts[data.from] = (unreadCounts[data.from] || 0) + 1
                         
-                        // Обновляем счетчик
-                        const badge = existingChat?.querySelector('.unread-badge')
+                        const chatElement = document.getElementById(`chat-${data.from}`)
+                        const badge = chatElement?.querySelector('.unread-badge')
                         if (badge) {
                             badge.textContent = unreadCounts[data.from] > 99 ? '99+' : unreadCounts[data.from]
-                        } else if (existingChat) {
+                        } else if (chatElement) {
                             const newBadge = document.createElement('span')
                             newBadge.className = 'unread-badge'
                             newBadge.textContent = unreadCounts[data.from] > 99 ? '99+' : unreadCounts[data.from]
-                            existingChat.appendChild(newBadge)
+                            chatElement.appendChild(newBadge)
                         }
                         
                         showToast(`Новое сообщение`)
@@ -452,6 +576,10 @@ function connect() {
                     if (messageElement) {
                         messageElement.remove()
                     }
+                }
+
+                if (data.action === "message_sent") {
+                    updateSingleChat(data.to, true)
                 }
 
                 if (data.action === "history") {
@@ -535,7 +663,6 @@ function handleReconnect() {
     }
 }
 
-
 // Загрузка списка чатов
 async function loadChats() {
     if (!currentUser) return
@@ -546,12 +673,10 @@ async function loadChats() {
         
         let chats = await res.json()
         
-        // Обновляем кэш
         chats.forEach(chat => {
             chatsCache[chat.phone] = chat
         })
         
-        // Сортируем по последнему сообщению (самые новые сверху)
         chats.sort((a, b) => {
             if (!a.last) return 1
             if (!b.last) return -1
@@ -615,20 +740,33 @@ function createChatElement(chat) {
         <div class="chat-status ${isOnline ? '' : 'offline'}"></div>
     `
     
+    // Обработчики для ПК
+    div.addEventListener('contextmenu', (e) => {
+        e.preventDefault()
+        showContextMenu(e, 'chat', { phone: chat.phone, element: div })
+    })
+    
+    // Обработчики для мобильных
+    div.addEventListener('touchstart', (e) => {
+        handleLongPress(e, 'chat', { phone: chat.phone, element: div })
+    })
+    
+    div.addEventListener('touchend', handleTouchEnd)
+    div.addEventListener('touchmove', handleTouchMove)
+    div.addEventListener('touchcancel', handleTouchEnd)
+    
     div.onclick = () => openChat(chat.phone, displayName)
     return div
 }
 
-// Обновление одного чата и поднятие наверх
+// Обновление одного чата
 async function updateSingleChat(phone, moveToTop = false) {
     try {
-        // Проверяем, есть ли уже такой элемент
         const existingElement = document.getElementById(`chat-${phone}`)
         if (existingElement && !moveToTop) {
-            return // Если элемент уже есть и не нужно поднимать - выходим
+            return
         }
         
-        // Загружаем свежие данные
         const res = await fetch(`/users/${currentUser}`)
         if (!res.ok) throw new Error('Failed to load chats')
         
@@ -636,7 +774,6 @@ async function updateSingleChat(phone, moveToTop = false) {
         const updatedChat = chats.find(c => c.phone === phone)
         
         if (!updatedChat) {
-            // Если чата нет в списке, но мы его хотим создать
             const userRes = await fetch(`/user/${phone}`)
             const userData = await userRes.json()
             
@@ -667,7 +804,6 @@ async function updateSingleChat(phone, moveToTop = false) {
             return
         }
         
-        // Обновляем существующий чат
         updatedChat.unread = unreadCounts[phone] || 0
         chatsCache[phone] = updatedChat
         
@@ -675,7 +811,6 @@ async function updateSingleChat(phone, moveToTop = false) {
         let chatElement = document.getElementById(`chat-${phone}`)
         
         if (chatElement) {
-            // Обновляем существующий элемент
             const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
             const lastMessage = updatedChat.last || 'Нет сообщений'
             const unreadCount = unreadCounts[phone] || 0
@@ -716,7 +851,6 @@ async function updateSingleChat(phone, moveToTop = false) {
             }
             
         } else {
-            // Создаем новый элемент
             const newChat = createChatElement(updatedChat)
             if (moveToTop) {
                 list.prepend(newChat)
@@ -735,19 +869,13 @@ async function updateSingleChat(phone, moveToTop = false) {
 
 // Открыть чат
 function openChat(phone, displayName) {
-    // Если уже открыт этот чат - не делаем ничего
-    if (currentChat === phone) {
-        return
-    }
+    if (currentChat === phone) return
     
     currentChat = phone
-    
     unreadCounts[phone] = 0
     
-    // Обновляем отображение чата (убираем бейдж)
     updateSingleChat(phone, false)
     
-    // Загружаем профиль для отображения в шапке
     fetch(`/user/${phone}`)
         .then(res => res.json())
         .then(user => {
@@ -780,12 +908,10 @@ function openChat(phone, displayName) {
     
     loadMessages()
     
-    // Убираем активный класс у всех чатов
     document.querySelectorAll('.chatItem').forEach(el => {
         el.classList.remove('active')
     })
     
-    // Добавляем активный класс текущему чату
     const activeChat = document.getElementById(`chat-${phone}`)
     if (activeChat) {
         activeChat.classList.add('active')
@@ -805,7 +931,6 @@ function loadMessages() {
     }))
 }
 
-
 // Отправка сообщения
 function send() {
     if (!currentChat) {
@@ -822,31 +947,25 @@ function send() {
 
     if (!text) return
 
-    // Отправляем сообщение
     ws.send(JSON.stringify({
         action: "send",
         to: currentChat,
         text: text
     }))
 
-    // Добавляем сообщение в интерфейс
     addMessage(currentUser, text)
     document.getElementById("text").value = ""
     
-    // Обновляем чат (поднимаем наверх) ТОЛЬКО если это новый чат
-    // Проверяем, есть ли уже этот чат в списке
     const existingChat = document.getElementById(`chat-${currentChat}`)
     if (!existingChat) {
-        // Если чата нет - создаем
         updateSingleChat(currentChat, true)
     } else {
-        // Если чат есть - просто поднимаем наверх
         const list = document.getElementById("chatList")
         list.prepend(existingChat)
     }
 }
 
-// Добавление сообщения в окно чата
+// Добавление сообщения
 function addMessage(user, text, messageId = null) {
     const messagesDiv = document.getElementById("messages")
     const div = document.createElement("div")
@@ -865,56 +984,32 @@ function addMessage(user, text, messageId = null) {
     `
     
     if (user === currentUser && messageId) {
+        // Обработчики для ПК
         div.addEventListener('contextmenu', (e) => {
             e.preventDefault()
-            openMessageContext(e, messageId, div)
+            showContextMenu(e, 'message', { messageId: messageId, element: div })
         })
         
-        // Для мобильных - долгое нажатие
-        let pressTimer
+        // Обработчики для мобильных
         div.addEventListener('touchstart', (e) => {
-            pressTimer = setTimeout(() => {
-                openMessageContext(e, messageId, div)
-            }, 500)
+            handleLongPress(e, 'message', { messageId: messageId, element: div })
         })
-        div.addEventListener('touchend', () => {
-            clearTimeout(pressTimer)
-        })
-        div.addEventListener('touchmove', () => {
-            clearTimeout(pressTimer)
-        })
+        
+        div.addEventListener('touchend', handleTouchEnd)
+        div.addEventListener('touchmove', handleTouchMove)
+        div.addEventListener('touchcancel', handleTouchEnd)
     }
     
     messagesDiv.appendChild(div)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
-// Открыть контекстное меню для сообщения
-function openMessageContext(event, messageId, messageElement) {
-    event.preventDefault()
-    event.stopPropagation()
-    
-    selectedMessageId = messageId
-    selectedMessageElement = messageElement
-    
-    const menu = document.getElementById('messageContextMenu')
-    menu.style.display = 'block'
-    menu.style.left = (event.pageX || event.touches[0].pageX) + 'px'
-    menu.style.top = (event.pageY || event.touches[0].pageY) + 'px'
-}
-
-// Закрыть контекстное меню
-document.addEventListener('click', () => {
-    document.getElementById('messageContextMenu').style.display = 'none'
-})
-
-document.addEventListener('touchstart', () => {
-    document.getElementById('messageContextMenu').style.display = 'none'
-})
-
-// Удалить сообщение
+// Удаление сообщения
 async function deleteMessage() {
-    if (!selectedMessageId || !currentChat) return
+    if (!selectedMessageId || !currentChat) {
+        hideContextMenus()
+        return
+    }
     
     try {
         const res = await fetch('/delete-message', {
@@ -944,7 +1039,104 @@ async function deleteMessage() {
         showToast("Ошибка при удалении")
     }
     
-    document.getElementById('messageContextMenu').style.display = 'none'
+    hideContextMenus()
+}
+
+// Удаление чата
+async function deleteChat() {
+    if (!selectedChatPhone) {
+        hideContextMenus()
+        return
+    }
+    
+    if (!confirm('Удалить этот чат? Вся история сообщений будет удалена.')) {
+        hideContextMenus()
+        return
+    }
+    
+    try {
+        const res = await fetch('/delete-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user: currentUser,
+                chat_with: selectedChatPhone
+            })
+        })
+        
+        if (res.ok) {
+            if (selectedChatElement) {
+                selectedChatElement.remove()
+            }
+            
+            if (currentChat === selectedChatPhone) {
+                currentChat = null
+                document.getElementById('emptyChat').style.display = 'flex'
+                document.getElementById('chatBlock').style.display = 'none'
+            }
+            
+            const count = document.getElementById("chatsCount")
+            count.textContent = parseInt(count.textContent) - 1
+            
+            showToast('Чат удален')
+        }
+        
+    } catch (error) {
+        console.error("Error deleting chat:", error)
+        showToast("Ошибка при удалении чата")
+    }
+    
+    hideContextMenus()
+}
+
+// Заглушить чат
+function muteChat() {
+    if (!selectedChatPhone) return
+    showToast('Чат заглушен')
+    hideContextMenus()
+}
+
+// Очистить историю чата
+async function clearChat() {
+    if (!selectedChatPhone) return
+    
+    if (!confirm('Очистить историю сообщений?')) {
+        hideContextMenus()
+        return
+    }
+    
+    try {
+        const res = await fetch('/clear-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user: currentUser,
+                chat_with: selectedChatPhone
+            })
+        })
+        
+        if (res.ok) {
+            if (currentChat === selectedChatPhone) {
+                document.getElementById("messages").innerHTML = ""
+            }
+            
+            const chatElement = document.getElementById(`chat-${selectedChatPhone}`)
+            if (chatElement) {
+                const lastMsgElement = chatElement.querySelector('.chat-last-message')
+                if (lastMsgElement) {
+                    lastMsgElement.innerText = 'Нет сообщений'
+                }
+            }
+            
+            showToast('История очищена')
+        }
+        
+    } catch (error) {
+        console.error("Error clearing chat:", error)
+        showToast("Ошибка при очистке")
+    }
+    
+    hideContextMenus()
 }
 
 // Индикатор печатания
@@ -1059,6 +1251,3 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление онлайн статусов
 setInterval(updateOnlineStatus, 5000)
-
-
-
