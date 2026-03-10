@@ -6,11 +6,10 @@ import os
 import logging
 import shutil
 import asyncpg
-import json
+import urllib.parse
 from datetime import datetime
 from pydantic import BaseModel
 import uvicorn
-import urllib.parse
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +40,14 @@ async def get_db():
     conn = await asyncpg.connect(DATABASE_URL)
     return conn
 
+# Функция для кодирования имени файла аватара
+def encode_avatar_filename(filename):
+    """Кодирует имя файла для безопасного использования в URL"""
+    if not filename:
+        return ""
+    # Кодируем спецсимволы, особенно +
+    return urllib.parse.quote(filename)
+
 # Инициализация базы данных
 async def init_db():
     conn = await get_db()
@@ -68,6 +75,23 @@ async def init_db():
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # Проверяем и добавляем недостающие колонки
+        columns = await conn.fetch('''
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'users'
+        ''')
+        
+        column_names = [col['column_name'] for col in columns]
+        
+        if 'bio' not in column_names:
+            await conn.execute('ALTER TABLE users ADD COLUMN bio TEXT')
+            logger.info("Added bio column to users table")
+        
+        if 'avatar' not in column_names:
+            await conn.execute('ALTER TABLE users ADD COLUMN avatar TEXT')
+            logger.info("Added avatar column to users table")
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -110,14 +134,13 @@ async def get_user(phone: str):
         await conn.close()
         
         if user:
-            # Экранируем спецсимволы в URL
+            # Кодируем имя файла аватара
             avatar_filename = user['avatar']
             avatar_url = ""
             if avatar_filename:
-                # Кодируем спецсимволы в имени файла
-                import urllib.parse
-                encoded_filename = urllib.parse.quote(avatar_filename)
+                encoded_filename = encode_avatar_filename(avatar_filename)
                 avatar_url = f"/avatars/{encoded_filename}"
+                logger.info(f"Avatar URL for {phone}: {avatar_url}")
             
             return {
                 "phone": user['phone'],
@@ -130,7 +153,7 @@ async def get_user(phone: str):
     except Exception as e:
         logger.error(f"Error getting user {phone}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
-        
+
 @app.post("/username")
 async def change_username(data: UsernameUpdate):
     try:
@@ -175,30 +198,44 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
         if not file.content_type.startswith('image/'):
             return JSONResponse(status_code=400, content={"error": "File must be an image"})
         
+        # Создаем безопасное имя файла - заменяем + на _
+        safe_phone = phone.replace('+', '').replace(' ', '')
         file_extension = os.path.splitext(file.filename)[1]
-        filename = f"{phone}{file_extension}"
+        filename = f"{safe_phone}{file_extension}"
         file_path = os.path.join(AVATAR_DIR, filename)
         
-        # Удаляем старый аватар
+        logger.info(f"Saving avatar to: {file_path}")
+        
+        # Удаляем старый аватар если есть
         conn = await get_db()
+        
+        # Получаем старый аватар
         old = await conn.fetchrow("SELECT avatar FROM users WHERE phone = $1", phone)
         if old and old['avatar']:
             old_path = os.path.join(AVATAR_DIR, old['avatar'])
             if os.path.exists(old_path):
                 os.remove(old_path)
+                logger.info(f"Removed old avatar: {old_path}")
         
-        # Сохраняем новый
+        # Сохраняем новый файл
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
+        logger.info(f"Saved new avatar: {file_path}")
+        
+        # Обновляем запись в БД
         await conn.execute(
             "UPDATE users SET avatar = $1 WHERE phone = $2",
             filename, phone
         )
         await conn.close()
         
-        logger.info(f"Avatar uploaded for {phone}")
-        return {"ok": True, "avatar": f"/avatars/{filename}"}
+        # Возвращаем URL с кодированием
+        encoded_filename = encode_avatar_filename(filename)
+        avatar_url = f"/avatars/{encoded_filename}"
+        
+        logger.info(f"Avatar uploaded for {phone}: {avatar_url}")
+        return {"ok": True, "avatar": avatar_url}
         
     except Exception as e:
         logger.error(f"Error uploading avatar: {e}")
@@ -214,6 +251,7 @@ async def remove_avatar(phone: str):
             file_path = os.path.join(AVATAR_DIR, result['avatar'])
             if os.path.exists(file_path):
                 os.remove(file_path)
+                logger.info(f"Removed avatar file: {file_path}")
         
         await conn.execute(
             "UPDATE users SET avatar = '' WHERE phone = $1",
@@ -261,6 +299,55 @@ async def delete_message(data: DeleteMessage):
         logger.error(f"Error deleting message: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/delete-chat")
+async def delete_chat(data: dict):
+    try:
+        user = data.get("user")
+        chat_with = data.get("chat_with")
+        
+        conn = await get_db()
+        
+        # Удаляем все сообщения между пользователями
+        await conn.execute('''
+            DELETE FROM messages 
+            WHERE (sender = $1 AND receiver = $2) 
+               OR (sender = $2 AND receiver = $1)
+        ''', user, chat_with)
+        
+        await conn.close()
+        
+        logger.info(f"Chat deleted between {user} and {chat_with}")
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error deleting chat: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/clear-chat")
+async def clear_chat(data: dict):
+    try:
+        user = data.get("user")
+        chat_with = data.get("chat_with")
+        
+        conn = await get_db()
+        
+        # Помечаем сообщения как удаленные (мягкое удаление)
+        await conn.execute('''
+            UPDATE messages 
+            SET is_deleted = 1, text = 'Сообщение удалено'
+            WHERE (sender = $1 AND receiver = $2) 
+               OR (sender = $2 AND receiver = $1)
+        ''', user, chat_with)
+        
+        await conn.close()
+        
+        logger.info(f"Chat cleared between {user} and {chat_with}")
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error clearing chat: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/search")
 async def search_user(data: SearchUser):
     try:
@@ -274,12 +361,13 @@ async def search_user(data: SearchUser):
         if not user:
             return {"found": False}
         
+        # Кодируем имя файла аватара
         avatar_filename = user['avatar']
         avatar_url = ""
         if avatar_filename:
-            import urllib.parse
-            encoded_filename = urllib.parse.quote(avatar_filename)
+            encoded_filename = encode_avatar_filename(avatar_filename)
             avatar_url = f"/avatars/{encoded_filename}"
+        
         return {
             "found": True,
             "phone": user['phone'],
@@ -327,15 +415,17 @@ async def get_users(me: str):
             last_msg = await conn.fetchrow('''
                 SELECT text FROM messages 
                 WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
+                AND is_deleted = 0
                 ORDER BY timestamp DESC LIMIT 1
             ''', me, phone)
             
             display_name = user_data['name'] or user_data['username'] or phone
+            
+            # Кодируем имя файла аватара
             avatar_filename = user_data['avatar']
             avatar_url = ""
             if avatar_filename:
-                import urllib.parse
-                encoded_filename = urllib.parse.quote(avatar_filename)
+                encoded_filename = encode_avatar_filename(avatar_filename)
                 avatar_url = f"/avatars/{encoded_filename}"
             
             result.append({
@@ -355,6 +445,22 @@ async def get_users(me: str):
     except Exception as e:
         logger.error(f"Error getting users for {me}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/check-avatar/{filename:path}")
+async def check_avatar(filename: str):
+    """Проверяет существование файла аватара (для отладки)"""
+    try:
+        decoded_filename = urllib.parse.unquote(filename)
+        file_path = os.path.join(AVATAR_DIR, decoded_filename)
+        exists = os.path.exists(file_path)
+        return {
+            "filename": filename,
+            "decoded": decoded_filename,
+            "exists": exists,
+            "path": file_path
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.websocket("/ws/{user}")
 async def websocket_endpoint(ws: WebSocket, user: str):
@@ -385,15 +491,14 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     text = data.get("text")
                     if not to or text is None:
                         continue
-                
-                    # Сохраняем сообщение
+
                     conn = await get_db()
                     message_id = await conn.fetchval('''
                         INSERT INTO messages (sender, receiver, text) 
                         VALUES ($1, $2, $3) RETURNING id
                     ''', user, to, text)
                     await conn.close()
-                
+
                     # Отправляем получателю, если онлайн
                     if to in clients:
                         try:
@@ -406,7 +511,7 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         except:
                             clients.pop(to, None)
                     
-                    # ВАЖНО: Отправляем confirmation отправителю, чтобы он сразу создал чат
+                    # Отправляем confirmation отправителю
                     await ws.send_json({
                         "action": "message_sent",
                         "to": to,
@@ -486,6 +591,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
-
-
