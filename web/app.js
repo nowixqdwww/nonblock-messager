@@ -24,6 +24,14 @@ window.clients = {}
 let chatsCache = {}
 let unreadCounts = {}
 
+// ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
+
+// Функция очистки номера от пробелов - ОБЪЯВЛЯЕМ САМОЙ ПЕРВОЙ
+function cleanPhone(phone) {
+    if (!phone) return ''
+    return phone.toString().replace(/\s+/g, '').trim()
+}
+
 // Показ уведомлений
 function showToast(message, duration = 3000) {
     const toast = document.getElementById('toast')
@@ -63,11 +71,6 @@ function escapeHtml(text) {
     return div.innerHTML
 }
 
-// Очистка номера от пробелов
-function cleanPhone(phone) {
-    return phone.replace(/\s+/g, '').trim()
-}
-
 // Переключение сайдбара на мобильных
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar')
@@ -82,6 +85,378 @@ function closeChat(event) {
     document.getElementById('chatBlock').style.display = 'none'
     document.getElementById('sidebar').classList.add('open')
 }
+
+// ============= ФУНКЦИИ ДЛЯ КОНТЕКСТНОГО МЕНЮ =============
+
+// Функция для показа контекстного меню
+function showContextMenu(event, type, data) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    // Закрываем все открытые меню
+    document.getElementById('messageContextMenu').style.display = 'none'
+    document.getElementById('chatContextMenu').style.display = 'none'
+    
+    let menu
+    let menuId
+    
+    if (type === 'message') {
+        menuId = 'messageContextMenu'
+        selectedMessageId = data.messageId
+        selectedMessageElement = data.element
+    } else if (type === 'chat') {
+        menuId = 'chatContextMenu'
+        selectedChatPhone = data.phone
+        selectedChatElement = data.element
+    }
+    
+    menu = document.getElementById(menuId)
+    
+    // Получаем координаты
+    let x, y
+    
+    if (event.touches) {
+        // Мобильное устройство
+        x = event.touches[0].pageX
+        y = event.touches[0].pageY
+        event.preventDefault()
+    } else {
+        // ПК
+        x = event.pageX
+        y = event.pageY
+    }
+    
+    // Позиционируем меню
+    menu.style.display = 'block'
+    menu.style.left = x + 'px'
+    menu.style.top = y + 'px'
+    
+    // Проверяем границы экрана
+    setTimeout(() => {
+        const rect = menu.getBoundingClientRect()
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (window.innerWidth - rect.width - 10) + 'px'
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (window.innerHeight - rect.height - 10) + 'px'
+        }
+    }, 0)
+}
+
+// Обработчик долгого нажатия
+function handleLongPress(event, type, data) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    if (longPressTimer) {
+        clearTimeout(longPressTimer)
+    }
+    
+    longPressTarget = { type, data, event }
+    
+    longPressTimer = setTimeout(() => {
+        if (longPressTarget) {
+            if (window.navigator.vibrate) {
+                window.navigator.vibrate(50)
+            }
+            showContextMenu(
+                longPressTarget.event,
+                longPressTarget.type,
+                longPressTarget.data
+            )
+            longPressTarget = null
+        }
+    }, 500)
+}
+
+// Обработчик окончания касания
+function handleTouchEnd() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+    }
+    longPressTarget = null
+}
+
+// Обработчик движения пальца
+function handleTouchMove() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+    }
+    longPressTarget = null
+}
+
+// Скрыть все контекстные меню
+function hideContextMenus() {
+    document.getElementById('messageContextMenu').style.display = 'none'
+    document.getElementById('chatContextMenu').style.display = 'none'
+    selectedMessageId = null
+    selectedMessageElement = null
+    selectedChatPhone = null
+    selectedChatElement = null
+}
+
+// Закрытие меню при клике вне
+document.addEventListener('click', hideContextMenus)
+document.addEventListener('touchstart', hideContextMenus)
+
+// Предотвращаем стандартное контекстное меню
+document.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.message') || e.target.closest('.chatItem')) {
+        e.preventDefault()
+    }
+})
+
+// Предотвращаем выделение на мобильных
+document.addEventListener('selectstart', (e) => {
+    if (e.target.closest('.message') || e.target.closest('.chatItem')) {
+        e.preventDefault()
+    }
+})
+
+// ============= ФУНКЦИИ ДЛЯ РАБОТЫ С ЧАТАМИ =============
+
+// Очистка дубликатов чатов
+function removeDuplicateChats() {
+    const chatList = document.getElementById("chatList")
+    const seen = new Set()
+    const duplicates = []
+    
+    const chats = chatList.querySelectorAll('.chatItem')
+    
+    chats.forEach(chat => {
+        const id = chat.id
+        if (seen.has(id)) {
+            duplicates.push(chat)
+        } else {
+            seen.add(id)
+        }
+    })
+    
+    duplicates.forEach(dup => dup.remove())
+    
+    if (duplicates.length > 0) {
+        console.log(`Removed ${duplicates.length} duplicate chats`)
+    }
+}
+
+// Создание элемента чата
+function createChatElement(chat) {
+    const displayName = chat.displayName || chat.name || chat.username || chat.phone
+    const lastMessage = chat.last || 'Нет сообщений'
+    const unreadCount = unreadCounts[chat.phone] || 0
+    
+    let div = document.createElement("div")
+    div.className = "chatItem"
+    
+    // Очищаем телефон перед использованием в ID
+    const cleanPhoneValue = cleanPhone(chat.phone)
+    div.id = `chat-${cleanPhoneValue}`
+    
+    if (chat.phone === currentChat) {
+        div.classList.add('active')
+    }
+    
+    let avatarHtml
+    if (chat.avatar) {
+        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
+    } else {
+        avatarHtml = escapeHtml(getAvatarLetter(displayName))
+    }
+    
+    const isOnline = window.clients && chat.phone in window.clients
+    
+    const unreadBadge = unreadCount > 0 ? 
+        `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
+    
+    div.innerHTML = `
+        <div class="chat-avatar">${avatarHtml}</div>
+        <div class="chat-info">
+            <div class="chat-name">${escapeHtml(displayName)}</div>
+            <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
+        </div>
+        ${unreadBadge}
+        <div class="chat-status ${isOnline ? '' : 'offline'}"></div>
+    `
+    
+    // Обработчики для ПК
+    div.addEventListener('contextmenu', (e) => {
+        e.preventDefault()
+        showContextMenu(e, 'chat', { phone: chat.phone, element: div })
+    })
+    
+    // Обработчики для мобильных
+    div.addEventListener('touchstart', (e) => {
+        handleLongPress(e, 'chat', { phone: chat.phone, element: div })
+    })
+    
+    div.addEventListener('touchend', handleTouchEnd)
+    div.addEventListener('touchmove', handleTouchMove)
+    div.addEventListener('touchcancel', handleTouchEnd)
+    
+    div.onclick = () => openChat(chat.phone, displayName)
+    return div
+}
+
+// Отрисовка списка чатов
+function renderChatList(chats) {
+    let list = document.getElementById("chatList")
+    list.innerHTML = ""
+
+    document.getElementById('chatsCount').textContent = chats.length
+
+    chats.forEach(chat => {
+        const chatElement = createChatElement(chat)
+        list.appendChild(chatElement)
+    })
+}
+
+// Загрузка списка чатов
+async function loadChats() {
+    if (!currentUser) return
+    
+    try {
+        let res = await fetch(`/users/${currentUser}`)
+        if (!res.ok) throw new Error('Failed to load chats')
+        
+        let chats = await res.json()
+        
+        chats.forEach(chat => {
+            chatsCache[chat.phone] = chat
+        })
+        
+        chats.sort((a, b) => {
+            if (!a.last) return 1
+            if (!b.last) return -1
+            return 0
+        })
+        
+        renderChatList(chats)
+        
+        // Очищаем дубликаты после рендера
+        setTimeout(removeDuplicateChats, 100)
+        
+    } catch (error) {
+        console.error("Error loading chats:", error)
+        showToast("Ошибка загрузки чатов")
+    }
+}
+
+// Обновление одного чата
+async function updateSingleChat(phone, moveToTop = false) {
+    try {
+        const cleanPhoneValue = cleanPhone(phone)
+        
+        const existingElement = document.getElementById(`chat-${cleanPhoneValue}`)
+        if (existingElement && !moveToTop) {
+            return
+        }
+        
+        const res = await fetch(`/users/${currentUser}`)
+        if (!res.ok) throw new Error('Failed to load chats')
+        
+        const chats = await res.json()
+        const updatedChat = chats.find(c => cleanPhone(c.phone) === cleanPhoneValue)
+        
+        if (!updatedChat) {
+            const userRes = await fetch(`/user/${phone}`)
+            const userData = await userRes.json()
+            
+            const newChat = {
+                phone: phone,
+                username: userData.username,
+                name: userData.name,
+                displayName: userData.name || userData.username || phone,
+                avatar: userData.avatar,
+                online: phone in window.clients,
+                last: ''
+            }
+            
+            chatsCache[phone] = newChat
+            
+            const list = document.getElementById("chatList")
+            const newChatElement = createChatElement(newChat)
+            
+            if (moveToTop) {
+                list.prepend(newChatElement)
+            } else {
+                list.appendChild(newChatElement)
+            }
+            
+            const count = document.getElementById("chatsCount")
+            count.textContent = parseInt(count.textContent) + 1
+            
+            return
+        }
+        
+        updatedChat.unread = unreadCounts[phone] || 0
+        chatsCache[phone] = updatedChat
+        
+        const list = document.getElementById("chatList")
+        let chatElement = document.getElementById(`chat-${cleanPhoneValue}`)
+        
+        if (chatElement) {
+            const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
+            const lastMessage = updatedChat.last || 'Нет сообщений'
+            const unreadCount = unreadCounts[phone] || 0
+            
+            const nameElement = chatElement.querySelector('.chat-name')
+            const lastMessageElement = chatElement.querySelector('.chat-last-message')
+            const avatarElement = chatElement.querySelector('.chat-avatar')
+            const statusDot = chatElement.querySelector('.chat-status')
+            
+            if (nameElement) nameElement.innerText = displayName
+            if (lastMessageElement) lastMessageElement.innerText = lastMessage
+            
+            if (updatedChat.avatar) {
+                avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
+            } else {
+                avatarElement.innerText = getAvatarLetter(displayName)
+            }
+            
+            const isOnline = window.clients && phone in window.clients
+            if (statusDot) {
+                statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
+            }
+            
+            let badge = chatElement.querySelector('.unread-badge')
+            if (unreadCount > 0) {
+                if (!badge) {
+                    badge = document.createElement('span')
+                    badge.className = 'unread-badge'
+                    chatElement.appendChild(badge)
+                }
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount
+            } else if (badge) {
+                badge.remove()
+            }
+            
+            if (moveToTop) {
+                list.prepend(chatElement)
+            }
+            
+        } else {
+            const newChat = createChatElement(updatedChat)
+            if (moveToTop) {
+                list.prepend(newChat)
+            } else {
+                list.appendChild(newChat)
+            }
+            
+            const count = document.getElementById("chatsCount")
+            count.textContent = parseInt(count.textContent) + 1
+        }
+        
+        // Очищаем дубликаты
+        setTimeout(removeDuplicateChats, 50)
+        
+    } catch (error) {
+        console.error("Error updating single chat:", error)
+    }
+}
+
+// ============= ФУНКЦИИ ДЛЯ АВТОРИЗАЦИИ И ПРОФИЛЯ =============
 
 // Вход в приложение
 function login() {
@@ -380,132 +755,314 @@ function closeModal() {
     document.getElementById('profileModal').classList.remove('show')
 }
 
-// Функция для показа контекстного меню
-function showContextMenu(event, type, data) {
-    event.preventDefault()
-    event.stopPropagation()
-    
-    // Закрываем все открытые меню
-    document.getElementById('messageContextMenu').style.display = 'none'
-    document.getElementById('chatContextMenu').style.display = 'none'
-    
-    let menu
-    let menuId
-    
-    if (type === 'message') {
-        menuId = 'messageContextMenu'
-        selectedMessageId = data.messageId
-        selectedMessageElement = data.element
-    } else if (type === 'chat') {
-        menuId = 'chatContextMenu'
-        selectedChatPhone = data.phone
-        selectedChatElement = data.element
-    }
-    
-    menu = document.getElementById(menuId)
-    
-    // Получаем координаты
-    let x, y
-    
-    if (event.touches) {
-        // Мобильное устройство
-        x = event.touches[0].pageX
-        y = event.touches[0].pageY
-        event.preventDefault()
-    } else {
-        // ПК
-        x = event.pageX
-        y = event.pageY
-    }
-    
-    // Позиционируем меню
-    menu.style.display = 'block'
-    menu.style.left = x + 'px'
-    menu.style.top = y + 'px'
-    
-    // Проверяем границы экрана
-    setTimeout(() => {
-        const rect = menu.getBoundingClientRect()
-        if (rect.right > window.innerWidth) {
-            menu.style.left = (window.innerWidth - rect.width - 10) + 'px'
-        }
-        if (rect.bottom > window.innerHeight) {
-            menu.style.top = (window.innerHeight - rect.height - 10) + 'px'
-        }
-    }, 0)
-}
+// ============= ФУНКЦИИ ДЛЯ ЧАТА И СООБЩЕНИЙ =============
 
-// Обработчик долгого нажатия
-function handleLongPress(event, type, data) {
-    event.preventDefault()
-    event.stopPropagation()
+// Открыть чат
+function openChat(phone, displayName) {
+    if (currentChat === phone) return
     
-    if (longPressTimer) {
-        clearTimeout(longPressTimer)
-    }
+    currentChat = phone
+    unreadCounts[phone] = 0
     
-    longPressTarget = { type, data, event }
+    updateSingleChat(phone, false)
     
-    longPressTimer = setTimeout(() => {
-        if (longPressTarget) {
-            if (window.navigator.vibrate) {
-                window.navigator.vibrate(50)
+    fetch(`/user/${phone}`)
+        .then(res => res.json())
+        .then(user => {
+            const name = user.name || user.username || phone
+            document.getElementById("chatUserName").innerText = name
+            document.getElementById("chatUserPhone").innerText = formatPhone(phone)
+            
+            const chatAvatar = document.getElementById("chatAvatarText")
+            if (user.avatar) {
+                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${name}')">`
+            } else {
+                chatAvatar.innerText = getAvatarLetter(name)
             }
-            showContextMenu(
-                longPressTarget.event,
-                longPressTarget.type,
-                longPressTarget.data
-            )
-            longPressTarget = null
+            
+            const isOnline = window.clients && phone in window.clients
+            document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
+        })
+        .catch(() => {
+            document.getElementById("chatUserName").innerText = displayName || phone
+            document.getElementById("chatUserPhone").innerText = formatPhone(phone)
+            document.getElementById("chatAvatarText").innerText = getAvatarLetter(displayName || phone)
+        })
+    
+    document.getElementById("emptyChat").style.display = "none"
+    document.getElementById("chatBlock").style.display = "flex"
+    
+    if (window.innerWidth <= 768) {
+        document.getElementById("sidebar").classList.remove('open')
+    }
+    
+    loadMessages()
+    
+    document.querySelectorAll('.chatItem').forEach(el => {
+        el.classList.remove('active')
+    })
+    
+    const cleanPhoneValue = cleanPhone(phone)
+    const activeChat = document.getElementById(`chat-${cleanPhoneValue}`)
+    if (activeChat) {
+        activeChat.classList.add('active')
+    }
+}
+
+// Загрузка истории сообщений
+function loadMessages() {
+    if (!currentChat || !ws || ws.readyState !== WebSocket.OPEN) {
+        showToast("Нет соединения с сервером")
+        return
+    }
+
+    ws.send(JSON.stringify({
+        action: "history",
+        user: currentChat
+    }))
+}
+
+// Отправка сообщения
+function send() {
+    if (!currentChat) {
+        showToast("Выберите чат")
+        return
+    }
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showToast("Нет соединения с сервером")
+        return
+    }
+
+    const text = document.getElementById("text").value.trim()
+
+    if (!text) return
+
+    ws.send(JSON.stringify({
+        action: "send",
+        to: currentChat,
+        text: text
+    }))
+
+    addMessage(currentUser, text)
+    document.getElementById("text").value = ""
+    
+    const cleanPhoneValue = cleanPhone(currentChat)
+    const existingChat = document.getElementById(`chat-${cleanPhoneValue}`)
+    if (!existingChat) {
+        updateSingleChat(currentChat, true)
+    } else {
+        const list = document.getElementById("chatList")
+        list.prepend(existingChat)
+    }
+}
+
+// Добавление сообщения
+function addMessage(user, text, messageId = null) {
+    const messagesDiv = document.getElementById("messages")
+    const div = document.createElement("div")
+    
+    div.className = "message " + (user === currentUser ? "me" : "other")
+    
+    if (messageId) {
+        div.dataset.messageId = messageId
+    }
+    
+    const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    
+    div.innerHTML = `
+        <div class="message-text">${escapeHtml(text)}</div>
+        <div class="message-time">${time}</div>
+    `
+    
+    if (user === currentUser && messageId) {
+        // Обработчики для ПК
+        div.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            showContextMenu(e, 'message', { messageId: messageId, element: div })
+        })
+        
+        // Обработчики для мобильных
+        div.addEventListener('touchstart', (e) => {
+            handleLongPress(e, 'message', { messageId: messageId, element: div })
+        })
+        
+        div.addEventListener('touchend', handleTouchEnd)
+        div.addEventListener('touchmove', handleTouchMove)
+        div.addEventListener('touchcancel', handleTouchEnd)
+    }
+    
+    messagesDiv.appendChild(div)
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
+}
+
+// Удаление сообщения
+async function deleteMessage() {
+    if (!selectedMessageId || !currentChat) {
+        hideContextMenus()
+        return
+    }
+    
+    try {
+        const res = await fetch('/delete-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message_id: selectedMessageId,
+                user: currentUser
+            })
+        })
+        
+        const data = await res.json()
+        
+        if (data.error) {
+            showToast(data.error)
+            return
         }
-    }, 500)
+        
+        if (selectedMessageElement) {
+            selectedMessageElement.remove()
+        }
+        
+        showToast('Сообщение удалено')
+        
+    } catch (error) {
+        console.error("Error deleting message:", error)
+        showToast("Ошибка при удалении")
+    }
+    
+    hideContextMenus()
 }
 
-// Обработчик окончания касания
-function handleTouchEnd() {
-    if (longPressTimer) {
-        clearTimeout(longPressTimer)
-        longPressTimer = null
+// Удаление чата
+async function deleteChat() {
+    if (!selectedChatPhone) {
+        hideContextMenus()
+        return
     }
-    longPressTarget = null
+    
+    if (!confirm('Удалить этот чат? Вся история сообщений будет удалена.')) {
+        hideContextMenus()
+        return
+    }
+    
+    try {
+        const res = await fetch('/delete-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user: currentUser,
+                chat_with: selectedChatPhone
+            })
+        })
+        
+        if (res.ok) {
+            const cleanPhoneValue = cleanPhone(selectedChatPhone)
+            const chatElement = document.getElementById(`chat-${cleanPhoneValue}`)
+            if (chatElement) {
+                chatElement.remove()
+            }
+            
+            if (currentChat === selectedChatPhone) {
+                currentChat = null
+                document.getElementById('emptyChat').style.display = 'flex'
+                document.getElementById('chatBlock').style.display = 'none'
+            }
+            
+            const count = document.getElementById("chatsCount")
+            count.textContent = parseInt(count.textContent) - 1
+            
+            delete chatsCache[selectedChatPhone]
+            
+            showToast('Чат удален')
+        }
+        
+    } catch (error) {
+        console.error("Error deleting chat:", error)
+        showToast("Ошибка при удалении чата")
+    }
+    
+    hideContextMenus()
 }
 
-// Обработчик движения пальца
-function handleTouchMove() {
-    if (longPressTimer) {
-        clearTimeout(longPressTimer)
-        longPressTimer = null
-    }
-    longPressTarget = null
+// Заглушить чат
+function muteChat() {
+    if (!selectedChatPhone) return
+    showToast('Чат заглушен')
+    hideContextMenus()
 }
 
-// Скрыть все контекстные меню
-function hideContextMenus() {
-    document.getElementById('messageContextMenu').style.display = 'none'
-    document.getElementById('chatContextMenu').style.display = 'none'
-    selectedMessageId = null
-    selectedMessageElement = null
-    selectedChatPhone = null
-    selectedChatElement = null
+// Очистить историю чата
+async function clearChat() {
+    if (!selectedChatPhone) return
+    
+    if (!confirm('Очистить историю сообщений?')) {
+        hideContextMenus()
+        return
+    }
+    
+    try {
+        const res = await fetch('/clear-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user: currentUser,
+                chat_with: selectedChatPhone
+            })
+        })
+        
+        if (res.ok) {
+            if (currentChat === selectedChatPhone) {
+                document.getElementById("messages").innerHTML = ""
+            }
+            
+            const cleanPhoneValue = cleanPhone(selectedChatPhone)
+            const chatElement = document.getElementById(`chat-${cleanPhoneValue}`)
+            if (chatElement) {
+                const lastMsgElement = chatElement.querySelector('.chat-last-message')
+                if (lastMsgElement) {
+                    lastMsgElement.innerText = 'Нет сообщений'
+                }
+                
+                const badge = chatElement.querySelector('.unread-badge')
+                if (badge) {
+                    badge.remove()
+                }
+            }
+            
+            if (chatsCache[selectedChatPhone]) {
+                chatsCache[selectedChatPhone].last = ''
+            }
+            
+            showToast('История очищена')
+        }
+        
+    } catch (error) {
+        console.error("Error clearing chat:", error)
+        showToast("Ошибка при очистке")
+    }
+    
+    hideContextMenus()
 }
 
-// Закрытие меню при клике вне
-document.addEventListener('click', hideContextMenus)
-document.addEventListener('touchstart', hideContextMenus)
+// ============= WEBSOCKET ФУНКЦИИ =============
 
-// Предотвращаем стандартное контекстное меню
-document.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('.message') || e.target.closest('.chatItem')) {
-        e.preventDefault()
+// Обновление онлайн статусов
+function updateOnlineStatus() {
+    document.querySelectorAll('.chatItem').forEach(item => {
+        const phone = item.id.replace('chat-', '')
+        const statusDot = item.querySelector('.chat-status')
+        if (statusDot) {
+            const isOnline = window.clients && phone in window.clients
+            statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
+        }
+    })
+    
+    if (currentChat) {
+        const isOnline = window.clients && currentChat in window.clients
+        document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
     }
-})
-
-// Предотвращаем выделение на мобильных
-document.addEventListener('selectstart', (e) => {
-    if (e.target.closest('.message') || e.target.closest('.chatItem')) {
-        e.preventDefault()
-    }
-})
+}
 
 // Подключение WebSocket
 function connect() {
@@ -640,23 +1197,6 @@ function connect() {
     }
 }
 
-// Обновление онлайн статусов
-function updateOnlineStatus() {
-    document.querySelectorAll('.chatItem').forEach(item => {
-        const phone = item.id.replace('chat-', '')
-        const statusDot = item.querySelector('.chat-status')
-        if (statusDot) {
-            const isOnline = window.clients && phone in window.clients
-            statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
-        }
-    })
-    
-    if (currentChat) {
-        const isOnline = window.clients && currentChat in window.clients
-        document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
-    }
-}
-
 // Обработка переподключения
 function handleReconnect() {
     if (reconnectAttempts < maxReconnectAttempts && currentUser) {
@@ -671,553 +1211,7 @@ function handleReconnect() {
     }
 }
 
-// Очистка дубликатов чатов
-function removeDuplicateChats() {
-    const chatList = document.getElementById("chatList")
-    const seen = new Set()
-    const duplicates = []
-    
-    const chats = chatList.querySelectorAll('.chatItem')
-    
-    chats.forEach(chat => {
-        const id = chat.id
-        if (seen.has(id)) {
-            duplicates.push(chat)
-        } else {
-            seen.add(id)
-        }
-    })
-    
-    duplicates.forEach(dup => dup.remove())
-    
-    if (duplicates.length > 0) {
-        console.log(`Removed ${duplicates.length} duplicate chats`)
-    }
-}
-
-// Загрузка списка чатов
-async function loadChats() {
-    if (!currentUser) return
-    
-    try {
-        let res = await fetch(`/users/${currentUser}`)
-        if (!res.ok) throw new Error('Failed to load chats')
-        
-        let chats = await res.json()
-        
-        chats.forEach(chat => {
-            chatsCache[chat.phone] = chat
-        })
-        
-        chats.sort((a, b) => {
-            if (!a.last) return 1
-            if (!b.last) return -1
-            return 0
-        })
-        
-        renderChatList(chats)
-        
-        // Очищаем дубликаты после рендера
-        setTimeout(removeDuplicateChats, 100)
-        
-    } catch (error) {
-        console.error("Error loading chats:", error)
-        showToast("Ошибка загрузки чатов")
-    }
-}
-
-// Отрисовка списка чатов
-function renderChatList(chats) {
-    let list = document.getElementById("chatList")
-    list.innerHTML = ""
-
-    document.getElementById('chatsCount').textContent = chats.length
-
-    chats.forEach(chat => {
-        const chatElement = createChatElement(chat)
-        list.appendChild(chatElement)
-    })
-}
-
-// Создание элемента чата
-function createChatElement(chat) {
-    const displayName = chat.displayName || chat.name || chat.username || chat.phone
-    const lastMessage = chat.last || 'Нет сообщений'
-    const unreadCount = unreadCounts[chat.phone] || 0
-    
-    let div = document.createElement("div")
-    div.className = "chatItem"
-    const cleanPhone = cleanPhone(chat.phone)
-    div.id = `chat-${cleanPhone}`
-    
-    if (chat.phone === currentChat) {
-        div.classList.add('active')
-    }
-    
-    let avatarHtml
-    if (chat.avatar) {
-        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
-    } else {
-        avatarHtml = escapeHtml(getAvatarLetter(displayName))
-    }
-    
-    const isOnline = window.clients && chat.phone in window.clients
-    
-    const unreadBadge = unreadCount > 0 ? 
-        `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
-    
-    div.innerHTML = `
-        <div class="chat-avatar">${avatarHtml}</div>
-        <div class="chat-info">
-            <div class="chat-name">${escapeHtml(displayName)}</div>
-            <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
-        </div>
-        ${unreadBadge}
-        <div class="chat-status ${isOnline ? '' : 'offline'}"></div>
-    `
-    
-    // Обработчики для ПК
-    div.addEventListener('contextmenu', (e) => {
-        e.preventDefault()
-        showContextMenu(e, 'chat', { phone: chat.phone, element: div })
-    })
-    
-    // Обработчики для мобильных
-    div.addEventListener('touchstart', (e) => {
-        handleLongPress(e, 'chat', { phone: chat.phone, element: div })
-    })
-    
-    div.addEventListener('touchend', handleTouchEnd)
-    div.addEventListener('touchmove', handleTouchMove)
-    div.addEventListener('touchcancel', handleTouchEnd)
-    
-    div.onclick = () => openChat(chat.phone, displayName)
-    return div
-}
-
-// Обновление одного чата
-async function updateSingleChat(phone, moveToTop = false) {
-    try {
-        const cleanPhone = cleanPhone(phone)
-        
-        const existingElement = document.getElementById(`chat-${cleanPhone}`)
-        if (existingElement && !moveToTop) {
-            return
-        }
-        
-        const res = await fetch(`/users/${currentUser}`)
-        if (!res.ok) throw new Error('Failed to load chats')
-        
-        const chats = await res.json()
-        const updatedChat = chats.find(c => c.phone === phone || cleanPhone(c.phone) === cleanPhone)
-        
-        if (!updatedChat) {
-            const userRes = await fetch(`/user/${phone}`)
-            const userData = await userRes.json()
-            
-            const newChat = {
-                phone: phone,
-                username: userData.username,
-                name: userData.name,
-                displayName: userData.name || userData.username || phone,
-                avatar: userData.avatar,
-                online: phone in window.clients,
-                last: ''
-            }
-            
-            chatsCache[phone] = newChat
-            
-            const list = document.getElementById("chatList")
-            const newChatElement = createChatElement(newChat)
-            
-            if (moveToTop) {
-                list.prepend(newChatElement)
-            } else {
-                list.appendChild(newChatElement)
-            }
-            
-            const count = document.getElementById("chatsCount")
-            count.textContent = parseInt(count.textContent) + 1
-            
-            return
-        }
-        
-        updatedChat.unread = unreadCounts[phone] || 0
-        chatsCache[phone] = updatedChat
-        
-        const list = document.getElementById("chatList")
-        let chatElement = document.getElementById(`chat-${cleanPhone}`)
-        
-        if (chatElement) {
-            const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
-            const lastMessage = updatedChat.last || 'Нет сообщений'
-            const unreadCount = unreadCounts[phone] || 0
-            
-            const nameElement = chatElement.querySelector('.chat-name')
-            const lastMessageElement = chatElement.querySelector('.chat-last-message')
-            const avatarElement = chatElement.querySelector('.chat-avatar')
-            const statusDot = chatElement.querySelector('.chat-status')
-            
-            if (nameElement) nameElement.innerText = displayName
-            if (lastMessageElement) lastMessageElement.innerText = lastMessage
-            
-            if (updatedChat.avatar) {
-                avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
-            } else {
-                avatarElement.innerText = getAvatarLetter(displayName)
-            }
-            
-            const isOnline = window.clients && phone in window.clients
-            if (statusDot) {
-                statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
-            }
-            
-            let badge = chatElement.querySelector('.unread-badge')
-            if (unreadCount > 0) {
-                if (!badge) {
-                    badge = document.createElement('span')
-                    badge.className = 'unread-badge'
-                    chatElement.appendChild(badge)
-                }
-                badge.textContent = unreadCount > 99 ? '99+' : unreadCount
-            } else if (badge) {
-                badge.remove()
-            }
-            
-            if (moveToTop) {
-                list.prepend(chatElement)
-            }
-            
-        } else {
-            const newChat = createChatElement(updatedChat)
-            if (moveToTop) {
-                list.prepend(newChat)
-            } else {
-                list.appendChild(newChat)
-            }
-            
-            const count = document.getElementById("chatsCount")
-            count.textContent = parseInt(count.textContent) + 1
-        }
-        
-        // Очищаем дубликаты
-        setTimeout(removeDuplicateChats, 50)
-        
-    } catch (error) {
-        console.error("Error updating single chat:", error)
-    }
-}
-
-// Открыть чат
-function openChat(phone, displayName) {
-    if (currentChat === phone) return
-    
-    currentChat = phone
-    unreadCounts[phone] = 0
-    
-    updateSingleChat(phone, false)
-    
-    fetch(`/user/${phone}`)
-        .then(res => res.json())
-        .then(user => {
-            const name = user.name || user.username || phone
-            document.getElementById("chatUserName").innerText = name
-            document.getElementById("chatUserPhone").innerText = formatPhone(phone)
-            
-            const chatAvatar = document.getElementById("chatAvatarText")
-            if (user.avatar) {
-                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${name}')">`
-            } else {
-                chatAvatar.innerText = getAvatarLetter(name)
-            }
-            
-            const isOnline = window.clients && phone in window.clients
-            document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
-        })
-        .catch(() => {
-            document.getElementById("chatUserName").innerText = displayName || phone
-            document.getElementById("chatUserPhone").innerText = formatPhone(phone)
-            document.getElementById("chatAvatarText").innerText = getAvatarLetter(displayName || phone)
-        })
-    
-    document.getElementById("emptyChat").style.display = "none"
-    document.getElementById("chatBlock").style.display = "flex"
-    
-    if (window.innerWidth <= 768) {
-        document.getElementById("sidebar").classList.remove('open')
-    }
-    
-    loadMessages()
-    
-    document.querySelectorAll('.chatItem').forEach(el => {
-        el.classList.remove('active')
-    })
-    
-    const cleanPhone = cleanPhone(phone)
-    const activeChat = document.getElementById(`chat-${cleanPhone}`)
-    if (activeChat) {
-        activeChat.classList.add('active')
-    }
-}
-
-// Загрузка истории сообщений
-function loadMessages() {
-    if (!currentChat || !ws || ws.readyState !== WebSocket.OPEN) {
-        showToast("Нет соединения с сервером")
-        return
-    }
-
-    ws.send(JSON.stringify({
-        action: "history",
-        user: currentChat
-    }))
-}
-
-// Отправка сообщения
-function send() {
-    if (!currentChat) {
-        showToast("Выберите чат")
-        return
-    }
-
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showToast("Нет соединения с сервером")
-        return
-    }
-
-    const text = document.getElementById("text").value.trim()
-
-    if (!text) return
-
-    ws.send(JSON.stringify({
-        action: "send",
-        to: currentChat,
-        text: text
-    }))
-
-    addMessage(currentUser, text)
-    document.getElementById("text").value = ""
-    
-    const cleanPhone = cleanPhone(currentChat)
-    const existingChat = document.getElementById(`chat-${cleanPhone}`)
-    if (!existingChat) {
-        updateSingleChat(currentChat, true)
-    } else {
-        const list = document.getElementById("chatList")
-        list.prepend(existingChat)
-    }
-}
-
-// Добавление сообщения
-function addMessage(user, text, messageId = null) {
-    const messagesDiv = document.getElementById("messages")
-    const div = document.createElement("div")
-    
-    div.className = "message " + (user === currentUser ? "me" : "other")
-    
-    if (messageId) {
-        div.dataset.messageId = messageId
-    }
-    
-    const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-    
-    div.innerHTML = `
-        <div class="message-text">${escapeHtml(text)}</div>
-        <div class="message-time">${time}</div>
-    `
-    
-    if (user === currentUser && messageId) {
-        // Обработчики для ПК
-        div.addEventListener('contextmenu', (e) => {
-            e.preventDefault()
-            showContextMenu(e, 'message', { messageId: messageId, element: div })
-        })
-        
-        // Обработчики для мобильных
-        div.addEventListener('touchstart', (e) => {
-            handleLongPress(e, 'message', { messageId: messageId, element: div })
-        })
-        
-        div.addEventListener('touchend', handleTouchEnd)
-        div.addEventListener('touchmove', handleTouchMove)
-        div.addEventListener('touchcancel', handleTouchEnd)
-    }
-    
-    messagesDiv.appendChild(div)
-    messagesDiv.scrollTop = messagesDiv.scrollHeight
-}
-
-// Удаление сообщения
-async function deleteMessage() {
-    if (!selectedMessageId || !currentChat) {
-        hideContextMenus()
-        return
-    }
-    
-    try {
-        const res = await fetch('/delete-message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message_id: selectedMessageId,
-                user: currentUser
-            })
-        })
-        
-        const data = await res.json()
-        
-        if (data.error) {
-            showToast(data.error)
-            return
-        }
-        
-        if (selectedMessageElement) {
-            selectedMessageElement.remove()
-        }
-        
-        showToast('Сообщение удалено')
-        
-    } catch (error) {
-        console.error("Error deleting message:", error)
-        showToast("Ошибка при удалении")
-    }
-    
-    hideContextMenus()
-}
-
-// Удаление чата
-async function deleteChat() {
-    if (!selectedChatPhone) {
-        hideContextMenus()
-        return
-    }
-    
-    if (!confirm('Удалить этот чат? Вся история сообщений будет удалена.')) {
-        hideContextMenus()
-        return
-    }
-    
-    try {
-        const res = await fetch('/delete-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user: currentUser,
-                chat_with: selectedChatPhone
-            })
-        })
-        
-        if (res.ok) {
-            const cleanPhone = cleanPhone(selectedChatPhone)
-            const chatElement = document.getElementById(`chat-${cleanPhone}`)
-            if (chatElement) {
-                chatElement.remove()
-            }
-            
-            if (currentChat === selectedChatPhone) {
-                currentChat = null
-                document.getElementById('emptyChat').style.display = 'flex'
-                document.getElementById('chatBlock').style.display = 'none'
-            }
-            
-            const count = document.getElementById("chatsCount")
-            count.textContent = parseInt(count.textContent) - 1
-            
-            delete chatsCache[selectedChatPhone]
-            
-            showToast('Чат удален')
-        }
-        
-    } catch (error) {
-        console.error("Error deleting chat:", error)
-        showToast("Ошибка при удалении чата")
-    }
-    
-    hideContextMenus()
-}
-
-// Заглушить чат
-function muteChat() {
-    if (!selectedChatPhone) return
-    showToast('Чат заглушен')
-    hideContextMenus()
-}
-
-// Очистить историю чата
-async function clearChat() {
-    if (!selectedChatPhone) return
-    
-    if (!confirm('Очистить историю сообщений?')) {
-        hideContextMenus()
-        return
-    }
-    
-    try {
-        const res = await fetch('/clear-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user: currentUser,
-                chat_with: selectedChatPhone
-            })
-        })
-        
-        if (res.ok) {
-            if (currentChat === selectedChatPhone) {
-                document.getElementById("messages").innerHTML = ""
-            }
-            
-            const cleanPhone = cleanPhone(selectedChatPhone)
-            const chatElement = document.getElementById(`chat-${cleanPhone}`)
-            if (chatElement) {
-                const lastMsgElement = chatElement.querySelector('.chat-last-message')
-                if (lastMsgElement) {
-                    lastMsgElement.innerText = 'Нет сообщений'
-                }
-                
-                const badge = chatElement.querySelector('.unread-badge')
-                if (badge) {
-                    badge.remove()
-                }
-            }
-            
-            if (chatsCache[selectedChatPhone]) {
-                chatsCache[selectedChatPhone].last = ''
-            }
-            
-            showToast('История очищена')
-        }
-        
-    } catch (error) {
-        console.error("Error clearing chat:", error)
-        showToast("Ошибка при очистке")
-    }
-    
-    hideContextMenus()
-}
-
-// Индикатор печатания
-document.getElementById("text").addEventListener("input", () => {
-    if (!currentChat || !ws || ws.readyState !== WebSocket.OPEN) return
-    
-    clearTimeout(typingTimeout)
-    
-    ws.send(JSON.stringify({
-        action: "typing",
-        to: currentChat,
-        typing: true
-    }))
-    
-    typingTimeout = setTimeout(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                action: "typing",
-                to: currentChat,
-                typing: false
-            }))
-        }
-    }, 2000)
-})
+// ============= ПОИСК =============
 
 // Поиск пользователей
 async function search() {
@@ -1251,6 +1245,33 @@ async function search() {
         showToast("Ошибка при поиске")
     }
 }
+
+// ============= ИНДИКАТОР ПЕЧАТАНИЯ =============
+
+// Индикатор печатания
+document.getElementById("text").addEventListener("input", () => {
+    if (!currentChat || !ws || ws.readyState !== WebSocket.OPEN) return
+    
+    clearTimeout(typingTimeout)
+    
+    ws.send(JSON.stringify({
+        action: "typing",
+        to: currentChat,
+        typing: true
+    }))
+    
+    typingTimeout = setTimeout(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                action: "typing",
+                to: currentChat,
+                typing: false
+            }))
+        }
+    }, 2000)
+})
+
+// ============= ОБРАБОТЧИКИ СОБЫТИЙ =============
 
 // Обработка Enter
 document.getElementById("text").addEventListener("keypress", (e) => {
