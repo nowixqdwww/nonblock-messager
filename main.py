@@ -1,10 +1,13 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 import sqlite3
 import os
 import logging
+import shutil
+import base64
+from pathlib import Path
 from pydantic import BaseModel
 import uvicorn
 
@@ -19,11 +22,18 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methodies=["*"],
     allow_headers=["*"],
 )
 
-# База данных - используем путь в папке проекта
+# Создаем папку для аватарок
+AVATAR_DIR = os.path.join(os.path.dirname(__file__), "avatars")
+os.makedirs(AVATAR_DIR, exist_ok=True)
+
+# Монтируем папку с аватарками для доступа из браузера
+app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
+
+# База данных
 DB_PATH = os.path.join(os.path.dirname(__file__), "messenger.db")
 
 def get_db():
@@ -65,6 +75,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users(
         phone TEXT PRIMARY KEY,
         username TEXT UNIQUE,
+        name TEXT,
         avatar TEXT
         )
         """)
@@ -107,37 +118,21 @@ async def get_user(phone: str):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        try:
-            cursor.execute(
-                "SELECT phone, username, name, avatar FROM users WHERE phone=?", 
-                (phone,)
-            )
-        except:
-            cursor.execute(
-                "SELECT phone, username, avatar FROM users WHERE phone=?", 
-                (phone,)
-            )
-            user = cursor.fetchone()
-            conn.close()
-            if user:
-                return {
-                    "phone": user[0],
-                    "username": user[1],
-                    "name": None,
-                    "avatar": user[2] if len(user) > 2 else ""
-                }
-            return {"phone": phone, "username": None, "name": None, "avatar": ""}
-        
+        cursor.execute(
+            "SELECT phone, username, name, avatar FROM users WHERE phone=?", 
+            (phone,)
+        )
         user = cursor.fetchone()
         conn.close()
         
         if user:
+            # Формируем полный URL для аватара
+            avatar_url = f"/avatars/{user[3]}" if user[3] else ""
             return {
                 "phone": user[0],
                 "username": user[1],
                 "name": user[2],
-                "avatar": user[3] if len(user) > 3 and user[3] else ""
+                "avatar": avatar_url
             }
         return {"phone": phone, "username": None, "name": None, "avatar": ""}
     except Exception as e:
@@ -164,18 +159,11 @@ async def change_username(data: UsernameUpdate):
         
         name = data.name if data.name else data.username[1:]
         
-        try:
-            cursor.execute("""
-                UPDATE users 
-                SET username=?, name=? 
-                WHERE phone=?
-            """, (data.username, name, data.phone))
-        except:
-            cursor.execute("""
-                UPDATE users 
-                SET username=? 
-                WHERE phone=?
-            """, (data.username, data.phone))
+        cursor.execute("""
+            UPDATE users 
+            SET username=?, name=? 
+            WHERE phone=?
+        """, (data.username, name, data.phone))
         
         conn.commit()
         conn.close()
@@ -187,46 +175,98 @@ async def change_username(data: UsernameUpdate):
         logger.error(f"Error updating username: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/upload-avatar/{phone}")
+async def upload_avatar(phone: str, file: UploadFile = File(...)):
+    try:
+        # Проверяем тип файла
+        if not file.content_type.startswith('image/'):
+            return JSONResponse(status_code=400, content={"error": "File must be an image"})
+        
+        # Создаем имя файла
+        file_extension = os.path.splitext(file.filename)[1]
+        filename = f"{phone}{file_extension}"
+        file_path = os.path.join(AVATAR_DIR, filename)
+        
+        # Удаляем старый аватар если есть
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT avatar FROM users WHERE phone=?", (phone,))
+        old_avatar = cursor.fetchone()
+        if old_avatar and old_avatar[0]:
+            old_path = os.path.join(AVATAR_DIR, old_avatar[0])
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        
+        # Сохраняем новый файл
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Обновляем запись в БД
+        cursor.execute(
+            "UPDATE users SET avatar=? WHERE phone=?",
+            (filename, phone)
+        )
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Avatar uploaded for {phone}")
+        return {"ok": True, "avatar": f"/avatars/{filename}"}
+        
+    except Exception as e:
+        logger.error(f"Error uploading avatar: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/remove-avatar/{phone}")
+async def remove_avatar(phone: str):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Получаем имя файла
+        cursor.execute("SELECT avatar FROM users WHERE phone=?", (phone,))
+        result = cursor.fetchone()
+        if result and result[0]:
+            file_path = os.path.join(AVATAR_DIR, result[0])
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+        # Обновляем запись
+        cursor.execute(
+            "UPDATE users SET avatar=? WHERE phone=?",
+            ("", phone)
+        )
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Avatar removed for {phone}")
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error removing avatar: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/search")
 async def search_user(data: SearchUser):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        
-        try:
-            cursor.execute(
-                "SELECT phone, username, name, avatar FROM users WHERE username=?", 
-                (data.username,)
-            )
-        except:
-            cursor.execute(
-                "SELECT phone, username, avatar FROM users WHERE username=?", 
-                (data.username,)
-            )
-            user = cursor.fetchone()
-            conn.close()
-            if not user:
-                return {"found": False}
-            return {
-                "found": True,
-                "phone": user[0],
-                "username": user[1],
-                "name": None,
-                "avatar": user[2] if len(user) > 2 else ""
-            }
-        
+        cursor.execute(
+            "SELECT phone, username, name, avatar FROM users WHERE username=?", 
+            (data.username,)
+        )
         user = cursor.fetchone()
         conn.close()
         
         if not user:
             return {"found": False}
         
+        avatar_url = f"/avatars/{user[3]}" if user[3] else ""
         return {
             "found": True,
             "phone": user[0],
             "username": user[1],
             "name": user[2],
-            "avatar": user[3] if len(user) > 3 and user[3] else ""
+            "avatar": avatar_url
         }
     except Exception as e:
         logger.error(f"Error searching user {data.username}: {e}")
@@ -251,20 +291,11 @@ async def get_users(me: str):
         for contact in contacts:
             phone = contact[0]
             
-            try:
-                cursor.execute(
-                    "SELECT phone, username, name, avatar FROM users WHERE phone=?", 
-                    (phone,)
-                )
-                user_data = cursor.fetchone()
-                has_name = True
-            except:
-                cursor.execute(
-                    "SELECT phone, username, avatar FROM users WHERE phone=?", 
-                    (phone,)
-                )
-                user_data = cursor.fetchone()
-                has_name = False
+            cursor.execute(
+                "SELECT phone, username, name, avatar FROM users WHERE phone=?", 
+                (phone,)
+            )
+            user_data = cursor.fetchone()
             
             if not user_data:
                 cursor.execute(
@@ -272,10 +303,7 @@ async def get_users(me: str):
                     (phone, "")
                 )
                 conn.commit()
-                if has_name:
-                    user_data = (phone, None, None, "")
-                else:
-                    user_data = (phone, None, "")
+                user_data = (phone, None, None, "")
             
             cursor.execute("""
             SELECT text FROM messages 
@@ -284,28 +312,18 @@ async def get_users(me: str):
             """, (me, phone, phone, me))
             last_msg = cursor.fetchone()
             
-            if has_name:
-                display_name = user_data[2] or user_data[1] or phone
-                result.append({
-                    "phone": user_data[0],
-                    "username": user_data[1],
-                    "name": user_data[2],
-                    "displayName": display_name,
-                    "avatar": user_data[3] if len(user_data) > 3 and user_data[3] else "",
-                    "online": phone in clients,
-                    "last": last_msg[0] if last_msg else ""
-                })
-            else:
-                display_name = user_data[1] or phone
-                result.append({
-                    "phone": user_data[0],
-                    "username": user_data[1],
-                    "name": None,
-                    "displayName": display_name,
-                    "avatar": user_data[2] if len(user_data) > 2 and user_data[2] else "",
-                    "online": phone in clients,
-                    "last": last_msg[0] if last_msg else ""
-                })
+            display_name = user_data[2] or user_data[1] or phone
+            avatar_url = f"/avatars/{user_data[3]}" if user_data[3] else ""
+            
+            result.append({
+                "phone": user_data[0],
+                "username": user_data[1],
+                "name": user_data[2],
+                "displayName": display_name,
+                "avatar": avatar_url,
+                "online": phone in clients,
+                "last": last_msg[0] if last_msg else ""
+            })
         
         conn.close()
         return result
@@ -410,7 +428,6 @@ if os.path.exists("web"):
 async def root():
     return FileResponse("web/index.html")
 
-# ЕДИНСТВЕННОЕ ИЗМЕНЕНИЕ ДЛЯ RENDER - эта строчка в конце
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(
