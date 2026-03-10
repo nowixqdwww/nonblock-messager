@@ -9,6 +9,9 @@ let reconnectTimeout = null
 let pingInterval = null
 let isConnected = false
 
+// Добавьте ЭТУ строку - глобальный объект clients
+window.clients = {}
+
 // Хранилище чатов и непрочитанных сообщений
 let chatsCache = {}
 let unreadCounts = {}
@@ -137,6 +140,7 @@ function openChatProfile() {
 }
 
 // Показать профиль пользователя
+// Показать профиль пользователя
 async function showUserProfile(phone, isMyProfile = false) {
     try {
         const res = await fetch(`/user/${phone}`)
@@ -163,8 +167,12 @@ async function showUserProfile(phone, isMyProfile = false) {
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
         document.getElementById('modalPhone').innerText = formatPhone(user.phone)
         
-        // Статус онлайн/оффлайн
-        const isOnline = phone in window.clients || false
+        // ИСПРАВЛЕНИЕ ЗДЕСЬ - проверяем статус онлайн
+        let isOnline = false
+        if (typeof clients !== 'undefined' && clients) {
+            isOnline = phone in clients
+        }
+        
         document.getElementById('modalStatus').innerHTML = isOnline ? 
             '<span style="color: #4ade80;">● Онлайн</span>' : 
             '<span style="color: #f87171;">● Оффлайн</span>'
@@ -647,6 +655,7 @@ async function updateSingleChat(phone, moveToTop = false) {
 }
 
 // Открыть чат
+// Открыть чат
 function openChat(phone, displayName) {
     currentChat = phone
     
@@ -672,8 +681,11 @@ function openChat(phone, displayName) {
                 chatAvatar.innerText = getAvatarLetter(name)
             }
             
-            // Обновляем статус
-            const isOnline = phone in window.clients || false
+            // ИСПРАВЛЕНИЕ ЗДЕСЬ - проверяем статус
+            let isOnline = false
+            if (typeof clients !== 'undefined' && clients) {
+                isOnline = phone in clients
+            }
             document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
         })
         .catch(() => {
@@ -870,3 +882,4 @@ window.addEventListener('beforeunload', () => {
     if (reconnectTimeout) clearTimeout(reconnectTimeout)
     if (ws) ws.close(1000, 'Page closed')
 })
+
