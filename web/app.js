@@ -999,6 +999,7 @@ function addMessage(user, text, messageId = null) {
 }
 
 // Удаление сообщения
+// Удаление сообщения
 async function deleteMessage() {
     if (!selectedMessageId || !currentChat) {
         hideContextMenus()
@@ -1022,9 +1023,13 @@ async function deleteMessage() {
             return
         }
         
+        // Удаляем сообщение из интерфейса
         if (selectedMessageElement) {
             selectedMessageElement.remove()
         }
+        
+        // Обновляем последнее сообщение в чате
+        await updateChatLastMessage(currentChat)
         
         showToast('Сообщение удалено')
         
@@ -1034,6 +1039,43 @@ async function deleteMessage() {
     }
     
     hideContextMenus()
+}
+
+// Новая функция для обновления последнего сообщения в чате
+async function updateChatLastMessage(phone) {
+    try {
+        // Получаем историю сообщений для этого чата
+        const res = await fetch(`/users/${currentUser}`)
+        if (!res.ok) throw new Error('Failed to load chats')
+        
+        const chats = await res.json()
+        const updatedChat = chats.find(c => c.phone === phone)
+        
+        if (updatedChat) {
+            // Обновляем кэш
+            chatsCache[phone] = updatedChat
+            
+            // Находим элемент чата в списке
+            const cleanPhoneValue = cleanPhone(phone)
+            const chatElement = document.getElementById(`chat-${cleanPhoneValue}`)
+            
+            if (chatElement) {
+                // Обновляем последнее сообщение
+                const lastMsgElement = chatElement.querySelector('.chat-last-message')
+                if (lastMsgElement) {
+                    lastMsgElement.innerText = updatedChat.last || 'Нет сообщений'
+                }
+                
+                // Если это текущий чат и сообщений больше нет
+                if (currentChat === phone && updatedChat.last === '') {
+                    // Можно показать индикатор, что сообщений нет
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error("Error updating chat last message:", error)
+    }
 }
 
 // Удаление чата
@@ -1260,9 +1302,15 @@ function connect() {
                 }
 
                 if (data.action === "message_deleted") {
+                    // Удаляем сообщение из интерфейса
                     const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`)
                     if (messageElement) {
                         messageElement.remove()
+                    }
+                    
+                    // Обновляем последнее сообщение в чате
+                    if (data.from) {
+                        updateChatLastMessage(data.from)
                     }
                 }
 
@@ -1475,4 +1523,5 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
+
 
