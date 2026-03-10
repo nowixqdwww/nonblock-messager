@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NonBlock Messenger</title>
     <link rel="stylesheet" href="/style.css">
+    <!-- Cropper.js CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <link rel="apple-touch-icon" href="/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -285,6 +287,36 @@
     </div>
 </div>
 
+<!-- Модальное окно для редактирования аватара -->
+<div id="avatarEditorModal" class="modal">
+    <div class="modal-content avatar-editor-content">
+        <div class="modal-header">
+            <h2>Редактировать аватар</h2>
+            <button class="close-btn" onclick="closeAvatarEditor()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="avatar-editor-container">
+                <img id="avatarImage" src="" alt="Avatar for editing">
+            </div>
+            <div class="avatar-editor-controls">
+                <div class="zoom-controls">
+                    <button onclick="zoomOut()" class="zoom-btn">−</button>
+                    <span id="zoomLevel">100%</span>
+                    <button onclick="zoomIn()" class="zoom-btn">+</button>
+                </div>
+                <div class="rotate-controls">
+                    <button onclick="rotateLeft()" class="rotate-btn">↺</button>
+                    <button onclick="rotateRight()" class="rotate-btn">↻</button>
+                </div>
+                <div class="editor-actions">
+                    <button onclick="saveCroppedAvatar()" class="save-profile-btn">Сохранить</button>
+                    <button onclick="closeAvatarEditor()" class="cancel-profile-btn">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Контекстное меню для сообщений -->
 <div id="messageContextMenu" class="context-menu" style="display: none;">
     <div class="context-menu-item delete" onclick="deleteMessage()">🗑️ Удалить сообщение</div>
@@ -300,6 +332,8 @@
 <!-- Уведомления -->
 <div id="toast" class="toast"></div>
 
+<!-- Cropper.js JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
