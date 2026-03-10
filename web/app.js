@@ -400,8 +400,16 @@ function connect() {
 
                 if (data.action === 'pong') return
 
+                if (data.action === "message_sent") {
+                    // Сообщение отправлено, создаем/обновляем чат
+                    updateSingleChat(data.to, true)
+                }
+
                 if (data.action === "message") {
                     addMessage(data.from, data.text, data.id)
+                    
+                    // НЕМЕДЛЕННО создаем/обновляем чат у получателя
+                    updateSingleChat(data.from, true)
                     
                     if (currentChat !== data.from) {
                         unreadCounts[data.from] = (unreadCounts[data.from] || 0) + 1
@@ -410,8 +418,6 @@ function connect() {
                             window.navigator.vibrate(200)
                         }
                     }
-                    
-                    updateSingleChat(data.from, true)
                 }
 
                 if (data.action === "message_deleted") {
@@ -502,6 +508,7 @@ function handleReconnect() {
     }
 }
 
+
 // Загрузка списка чатов
 async function loadChats() {
     if (!currentUser) return
@@ -512,8 +519,16 @@ async function loadChats() {
         
         let chats = await res.json()
         
+        // Обновляем кэш
         chats.forEach(chat => {
             chatsCache[chat.phone] = chat
+        })
+        
+        // Сортируем по последнему сообщению (самые новые сверху)
+        chats.sort((a, b) => {
+            if (!a.last) return 1
+            if (!b.last) return -1
+            return 0
         })
         
         renderChatList(chats)
@@ -580,15 +595,51 @@ function createChatElement(chat) {
 // Обновление одного чата и поднятие наверх
 async function updateSingleChat(phone, moveToTop = false) {
     try {
-        const userRes = await fetch(`/user/${phone}`)
-        const userData = await userRes.json()
-        
+        // Всегда загружаем свежие данные
         const res = await fetch(`/users/${currentUser}`)
+        if (!res.ok) throw new Error('Failed to load chats')
+        
         const chats = await res.json()
         const updatedChat = chats.find(c => c.phone === phone)
         
-        if (!updatedChat) return
+        if (!updatedChat) {
+            // Если чата нет в списке, но мы его хотим создать
+            // Получаем информацию о пользователе
+            const userRes = await fetch(`/user/${phone}`)
+            const userData = await userRes.json()
+            
+            // Создаем минимальный объект чата
+            const newChat = {
+                phone: phone,
+                username: userData.username,
+                name: userData.name,
+                displayName: userData.name || userData.username || phone,
+                avatar: userData.avatar,
+                online: phone in window.clients,
+                last: '' // Пустое последнее сообщение пока
+            }
+            
+            // Добавляем в кэш
+            chatsCache[phone] = newChat
+            
+            // Создаем элемент
+            const list = document.getElementById("chatList")
+            const newChatElement = createChatElement(newChat)
+            
+            if (moveToTop) {
+                list.prepend(newChatElement)
+            } else {
+                list.appendChild(newChatElement)
+            }
+            
+            // Обновляем счетчик
+            const count = document.getElementById("chatsCount")
+            count.textContent = parseInt(count.textContent) + 1
+            
+            return
+        }
         
+        // Обновляем существующий чат
         updatedChat.unread = unreadCounts[phone] || 0
         chatsCache[phone] = updatedChat
         
@@ -636,6 +687,7 @@ async function updateSingleChat(phone, moveToTop = false) {
             }
             
         } else {
+            // Создаем новый элемент
             const newChat = createChatElement(updatedChat)
             if (moveToTop) {
                 list.prepend(newChat)
@@ -957,4 +1009,5 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление онлайн статусов
 setInterval(updateOnlineStatus, 5000)
+
 
