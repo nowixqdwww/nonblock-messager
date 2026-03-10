@@ -1440,3 +1440,155 @@ body {
         min-height: 40px;
     }
 }
+
+/* Settings styles */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.settings-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.settings-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.settings-section {
+    margin-bottom: 30px;
+}
+
+.settings-section h3 {
+    color: #667eea;
+    font-size: 16px;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.settings-item:last-child {
+    border-bottom: none;
+}
+
+.settings-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-item-title {
+    font-weight: 500;
+    color: #333;
+    font-size: 15px;
+    margin-bottom: 3px;
+}
+
+.settings-item-description {
+    font-size: 12px;
+    color: #999;
+}
+
+.settings-select {
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #333;
+    background: white;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+    min-width: 120px;
+}
+
+.settings-select:focus {
+    border-color: #667eea;
+}
+
+.settings-select:hover {
+    border-color: #667eea;
+}
+
+.settings-button {
+    padding: 8px 16px;
+    background: #f0f0f0;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.settings-button:hover {
+    background: #e0e0e0;
+}
+
+.settings-button.danger {
+    background: #fee2e2;
+    color: #f87171;
+}
+
+.settings-button.danger:hover {
+    background: #fecaca;
+}
+
+/* Mobile settings */
+@media (max-width: 768px) {
+    .settings-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .settings-select,
+    .settings-button {
+        width: 100%;
+    }
+    
+    .settings-section {
+        margin-bottom: 20px;
+    }
+}
+
+/* Privacy badges */
+.privacy-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #f0f0f0;
+    color: #666;
+    margin-left: 8px;
+}
+
+.privacy-badge.public {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.privacy-badge.private {
+    background: #ffebee;
+    color: #c62828;
+}
