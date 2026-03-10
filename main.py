@@ -395,13 +395,8 @@ async def search_user(data: SearchUser):
         if not user:
             return {"found": False}
         
-        # Формируем URL аватара
         avatar_filename = user['avatar']
-        avatar_url = ""
-        if avatar_filename:
-            file_path = os.path.join(AVATAR_DIR, avatar_filename)
-            if os.path.exists(file_path):
-                avatar_url = f"/avatars/{avatar_filename}"
+        avatar_url = f"/avatars/{avatar_filename}" if avatar_filename else ""
         
         return {
             "found": True,
@@ -413,6 +408,49 @@ async def search_user(data: SearchUser):
         }
     except Exception as e:
         logger.error(f"Error searching user {data.username}: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/search-users/{query}")
+async def search_users(query: str):
+    """Поиск пользователей по части username или имени"""
+    try:
+        if len(query) < 2:
+            return {"users": []}
+        
+        conn = await get_db()
+        
+        # Ищем по username (содержит query, без учета регистра)
+        users = await conn.fetch('''
+            SELECT phone, username, name, avatar 
+            FROM users 
+            WHERE username ILIKE $1 OR name ILIKE $1
+            ORDER BY 
+                CASE 
+                    WHEN username ILIKE $2 THEN 1
+                    WHEN username ILIKE $3 THEN 2
+                    ELSE 3
+                END,
+                username
+            LIMIT 10
+        ''', f'%{query}%', f'{query}%', f'%{query}')
+        
+        await conn.close()
+        
+        result = []
+        for user in users:
+            avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
+            result.append({
+                "phone": user['phone'],
+                "username": user['username'],
+                "name": user['name'],
+                "avatar": avatar_url,
+                "displayName": user['name'] or user['username'] or user['phone']
+            })
+        
+        return {"users": result}
+        
+    except Exception as e:
+        logger.error(f"Error searching users: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/users/{me}")
@@ -646,5 +684,6 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
 
 
