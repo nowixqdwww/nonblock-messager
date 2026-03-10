@@ -1078,3 +1078,60 @@ body {
 .profile-avatar, .chat-user-avatar, .profile-view-avatar, .avatar-preview {
     transition: none;
 }
+
+/* Bio textarea */
+.bio-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+}
+
+.bio-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* Для мобильных */
+@media (max-width: 768px) {
+    .bio-textarea {
+        font-size: 16px;
+        padding: 10px;
+    }
+}
+
+/* Context menu */
+.context-menu {
+    position: fixed;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    padding: 8px 0;
+    z-index: 3000;
+    min-width: 200px;
+}
+
+.context-menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: #333;
+    font-size: 14px;
+}
+
+.context-menu-item:hover {
+    background: #f5f5f5;
+}
+
+.context-menu-item.delete {
+    color: #f87171;
+}
+
+.context-menu-item.delete:hover {
+    background: #fee2e2;
+}
