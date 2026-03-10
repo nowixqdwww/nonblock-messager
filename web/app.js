@@ -8,6 +8,8 @@ let typingTimeout = null
 let reconnectTimeout = null
 let pingInterval = null
 let isConnected = false
+let selectedMessageId = null
+let selectedMessageElement = null
 
 // Глобальный объект для хранения онлайн статусов
 window.clients = {}
@@ -156,9 +158,9 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         document.getElementById('modalName').innerText = user.name || 'Не указано'
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
+        document.getElementById('modalBio').innerText = user.bio || 'Не указано' // НОВОЕ
         document.getElementById('modalPhone').innerText = formatPhone(user.phone)
         
-        // ИСПРАВЛЕНО: проверка онлайн статуса
         let isOnline = false
         if (window.clients && typeof window.clients === 'object') {
             isOnline = phone in window.clients
@@ -180,6 +182,7 @@ async function showUserProfile(phone, isMyProfile = false) {
             editBtn.onclick = () => {
                 document.getElementById('editName').value = user.name || ''
                 document.getElementById('editUsername').value = user.username || ''
+                document.getElementById('editBio').value = user.bio || '' // НОВОЕ
                 
                 const previewAvatar = document.getElementById('previewAvatarText')
                 if (user.avatar) {
@@ -305,6 +308,7 @@ async function removeAvatar() {
 async function saveProfile() {
     const username = document.getElementById('editUsername').value.trim()
     const name = document.getElementById('editName').value.trim()
+    const bio = document.getElementById('editBio').value.trim() // НОВОЕ
     
     if (!username) {
         showToast("Введите username")
@@ -328,7 +332,8 @@ async function saveProfile() {
             body: JSON.stringify({
                 phone: currentUser,
                 username: username,
-                name: name || username.substring(1)
+                name: name || username.substring(1),
+                bio: bio // НОВОЕ
             })
         })
         
@@ -380,7 +385,6 @@ function connect() {
             reconnectAttempts = 0
             showToast('Подключено к серверу')
             
-            // Обновляем онлайн статус для всех
             updateOnlineStatus()
             
             pingInterval = setInterval(() => {
@@ -397,28 +401,30 @@ function connect() {
                 if (data.action === 'pong') return
 
                 if (data.action === "message") {
-                    addMessage(data.from, data.text)
+                    addMessage(data.from, data.text, data.id)
                     
-                    // ИСПРАВЛЕНО: показываем уведомление только если не в этом чате
                     if (currentChat !== data.from) {
-                        // Увеличиваем счетчик непрочитанных
                         unreadCounts[data.from] = (unreadCounts[data.from] || 0) + 1
-                        
-                        // Показываем уведомление только если не в этом чате
-                        showToast(`Новое сообщение от ${data.from}`)
+                        showToast(`Новое сообщение`)
                         if (window.navigator.vibrate) {
                             window.navigator.vibrate(200)
                         }
                     }
                     
-                    // Обновляем чат и поднимаем его наверх
                     updateSingleChat(data.from, true)
+                }
+
+                if (data.action === "message_deleted") {
+                    const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`)
+                    if (messageElement) {
+                        messageElement.remove()
+                    }
                 }
 
                 if (data.action === "history") {
                     document.getElementById("messages").innerHTML = ""
                     data.messages.forEach(m => {
-                        addMessage(m[0], m[1])
+                        addMessage(m[1], m[2], m[0])
                     })
                     
                     if (currentChat) {
@@ -433,7 +439,6 @@ function connect() {
                         clearTimeout(window.typingStatusTimeout)
                         window.typingStatusTimeout = setTimeout(() => {
                             if (currentChat === data.from) {
-                                // ИСПРАВЛЕНО: проверяем онлайн статус
                                 let isOnline = window.clients && data.from in window.clients
                                 document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
                             }
@@ -468,7 +473,6 @@ function connect() {
 
 // Обновление онлайн статусов
 function updateOnlineStatus() {
-    // Эта функция будет обновлять статусы в UI
     document.querySelectorAll('.chatItem').forEach(item => {
         const phone = item.id.replace('chat-', '')
         const statusDot = item.querySelector('.chat-status')
@@ -478,7 +482,6 @@ function updateOnlineStatus() {
         }
     })
     
-    // Обновляем статус в текущем чате если открыт
     if (currentChat) {
         const isOnline = window.clients && currentChat in window.clients
         document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
@@ -509,7 +512,6 @@ async function loadChats() {
         
         let chats = await res.json()
         
-        // Обновляем кэш
         chats.forEach(chat => {
             chatsCache[chat.phone] = chat
         })
@@ -556,7 +558,6 @@ function createChatElement(chat) {
         avatarHtml = escapeHtml(getAvatarLetter(displayName))
     }
     
-    // ИСПРАВЛЕНО: проверка онлайн статуса
     const isOnline = window.clients && chat.phone in window.clients
     
     const unreadBadge = unreadCount > 0 ? 
@@ -613,7 +614,6 @@ async function updateSingleChat(phone, moveToTop = false) {
                 avatarElement.innerText = getAvatarLetter(displayName)
             }
             
-            // ИСПРАВЛЕНО: обновляем онлайн статус
             const isOnline = window.clients && phone in window.clients
             if (statusDot) {
                 statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
@@ -636,8 +636,6 @@ async function updateSingleChat(phone, moveToTop = false) {
             }
             
         } else {
-            // ИСПРАВЛЕНО: если чата нет - создаем новый даже без сообщений
-            // (для случая когда пользователь сам написал первым)
             const newChat = createChatElement(updatedChat)
             if (moveToTop) {
                 list.prepend(newChat)
@@ -675,7 +673,6 @@ function openChat(phone, displayName) {
                 chatAvatar.innerText = getAvatarLetter(name)
             }
             
-            // ИСПРАВЛЕНО: проверка онлайн статуса
             const isOnline = window.clients && phone in window.clients
             document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
         })
@@ -743,12 +740,16 @@ function send() {
     document.getElementById("text").value = ""
 }
 
-// Добавление сообщения
-function addMessage(user, text) {
+// Добавление сообщения в окно чата
+function addMessage(user, text, messageId = null) {
     const messagesDiv = document.getElementById("messages")
     const div = document.createElement("div")
     
     div.className = "message " + (user === currentUser ? "me" : "other")
+    
+    if (messageId) {
+        div.dataset.messageId = messageId
+    }
     
     const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
     
@@ -756,9 +757,88 @@ function addMessage(user, text) {
         <div class="message-text">${escapeHtml(text)}</div>
         <div class="message-time">${time}</div>
     `
-
+    
+    if (user === currentUser && messageId) {
+        div.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            openMessageContext(e, messageId, div)
+        })
+        
+        // Для мобильных - долгое нажатие
+        let pressTimer
+        div.addEventListener('touchstart', (e) => {
+            pressTimer = setTimeout(() => {
+                openMessageContext(e, messageId, div)
+            }, 500)
+        })
+        div.addEventListener('touchend', () => {
+            clearTimeout(pressTimer)
+        })
+        div.addEventListener('touchmove', () => {
+            clearTimeout(pressTimer)
+        })
+    }
+    
     messagesDiv.appendChild(div)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
+}
+
+// Открыть контекстное меню для сообщения
+function openMessageContext(event, messageId, messageElement) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    selectedMessageId = messageId
+    selectedMessageElement = messageElement
+    
+    const menu = document.getElementById('messageContextMenu')
+    menu.style.display = 'block'
+    menu.style.left = (event.pageX || event.touches[0].pageX) + 'px'
+    menu.style.top = (event.pageY || event.touches[0].pageY) + 'px'
+}
+
+// Закрыть контекстное меню
+document.addEventListener('click', () => {
+    document.getElementById('messageContextMenu').style.display = 'none'
+})
+
+document.addEventListener('touchstart', () => {
+    document.getElementById('messageContextMenu').style.display = 'none'
+})
+
+// Удалить сообщение
+async function deleteMessage() {
+    if (!selectedMessageId || !currentChat) return
+    
+    try {
+        const res = await fetch('/delete-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message_id: selectedMessageId,
+                user: currentUser
+            })
+        })
+        
+        const data = await res.json()
+        
+        if (data.error) {
+            showToast(data.error)
+            return
+        }
+        
+        if (selectedMessageElement) {
+            selectedMessageElement.remove()
+        }
+        
+        showToast('Сообщение удалено')
+        
+    } catch (error) {
+        console.error("Error deleting message:", error)
+        showToast("Ошибка при удалении")
+    }
+    
+    document.getElementById('messageContextMenu').style.display = 'none'
 }
 
 // Индикатор печатания
@@ -873,4 +953,3 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление онлайн статусов
 setInterval(updateOnlineStatus, 5000)
-
