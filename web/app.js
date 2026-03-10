@@ -249,7 +249,7 @@ function closeModal() {
     document.getElementById('profileModal').classList.remove('show')
 }
 
-// Подключение WebSocket
+// Обновление функции connect для обработки сообщений
 function connect() {
     // Очищаем предыдущие интервалы
     if (pingInterval) clearInterval(pingInterval)
@@ -258,7 +258,7 @@ function connect() {
     try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const wsUrl = `${protocol}//${window.location.host}/ws/${currentUser}`
-
+        
         console.log('Connecting to:', wsUrl)
         ws = new WebSocket(wsUrl)
 
@@ -267,7 +267,7 @@ function connect() {
             isConnected = true
             reconnectAttempts = 0
             showToast('Подключено к серверу')
-
+            
             // Пинг каждые 30 секунд
             pingInterval = setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) {
@@ -285,8 +285,11 @@ function connect() {
 
                 if (data.action === "message") {
                     addMessage(data.from, data.text)
-                    loadChats()
-
+                    
+                    // Обновляем ТОЛЬКО этот чат, а не все
+                    updateSingleChat(data.from)
+                    
+                    // Показываем уведомление если не в этом чате
                     if (currentChat !== data.from) {
                         showToast(`Новое сообщение`)
                         if (window.navigator.vibrate) {
@@ -322,7 +325,7 @@ function connect() {
             console.log('WebSocket disconnected:', event.code, event.reason)
             isConnected = false
             if (pingInterval) clearInterval(pingInterval)
-
+            
             if (event.code !== 1000) {
                 handleReconnect()
             }
@@ -353,47 +356,25 @@ function handleReconnect() {
     }
 }
 
+// Хранилище чатов для быстрого доступа
+let chatsCache = {}
+
 // Загрузка списка чатов
 async function loadChats() {
     if (!currentUser) return
-
+    
     try {
         let res = await fetch(`/users/${currentUser}`)
         if (!res.ok) throw new Error('Failed to load chats')
-
+        
         let chats = await res.json()
-
-        let list = document.getElementById("chatList")
-        list.innerHTML = ""
-
-        document.getElementById('chatsCount').textContent = chats.length
-
-        for (let chat of chats) {
-            // Загружаем профиль собеседника
-            const userRes = await fetch(`/user/${chat.phone}`)
-            const userData = await userRes.json()
-
-            let div = document.createElement("div")
-            div.className = "chatItem"
-            if (chat.phone === currentChat) {
-                div.classList.add('active')
-            }
-
-            const displayName = userData.name || userData.username || chat.phone
-            const lastMessage = chat.last || 'Нет сообщений'
-
-            div.innerHTML = `
-                <div class="chat-avatar">${escapeHtml(getAvatarLetter(displayName))}</div>
-                <div class="chat-info">
-                    <div class="chat-name">${escapeHtml(displayName)}</div>
-                    <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
-                </div>
-                <div class="chat-status ${chat.online ? '' : 'offline'}"></div>
-            `
-
-            div.onclick = () => openChat(chat.phone, displayName)
-            list.appendChild(div)
-        }
+        
+        // Обновляем кэш
+        chats.forEach(chat => {
+            chatsCache[chat.phone] = chat
+        })
+        
+        renderChatList(chats)
 
     } catch (error) {
         console.error("Error loading chats:", error)
@@ -401,10 +382,98 @@ async function loadChats() {
     }
 }
 
+// Отрисовка списка чатов
+function renderChatList(chats) {
+    let list = document.getElementById("chatList")
+    list.innerHTML = ""
+
+    document.getElementById('chatsCount').textContent = chats.length
+
+    chats.forEach(chat => {
+        const chatElement = createChatElement(chat)
+        list.appendChild(chatElement)
+    })
+}
+
+// Создание элемента чата
+function createChatElement(chat) {
+    const displayName = chat.displayName || chat.name || chat.username || chat.phone
+    const lastMessage = chat.last || 'Нет сообщений'
+    const avatarLetter = getAvatarLetter(displayName)
+    
+    let div = document.createElement("div")
+    div.className = "chatItem"
+    div.id = `chat-${chat.phone}` // Уникальный ID для обновления
+    
+    if (chat.phone === currentChat) {
+        div.classList.add('active')
+    }
+    
+    div.innerHTML = `
+        <div class="chat-avatar">${escapeHtml(avatarLetter)}</div>
+        <div class="chat-info">
+            <div class="chat-name">${escapeHtml(displayName)}</div>
+            <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
+        </div>
+        <div class="chat-status ${chat.online ? '' : 'offline'}"></div>
+    `
+    
+    div.onclick = () => openChat(chat.phone, displayName)
+    return div
+}
+
+// Обновление одного чата (без перерисовки всех)
+async function updateSingleChat(phone) {
+    try {
+        // Загружаем обновленные данные для этого чата
+        const userRes = await fetch(`/user/${phone}`)
+        const userData = await userRes.json()
+        
+        // Получаем последнее сообщение
+        const res = await fetch(`/users/${currentUser}`)
+        const chats = await res.json()
+        const updatedChat = chats.find(c => c.phone === phone)
+        
+        if (!updatedChat) return
+        
+        // Обновляем кэш
+        chatsCache[phone] = updatedChat
+        
+        // Находим существующий элемент чата
+        const existingChat = document.getElementById(`chat-${phone}`)
+        
+        if (existingChat) {
+            // Обновляем существующий чат
+            const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
+            const lastMessage = updatedChat.last || 'Нет сообщений'
+            
+            const nameElement = existingChat.querySelector('.chat-name')
+            const lastMessageElement = existingChat.querySelector('.chat-last-message')
+            const avatarElement = existingChat.querySelector('.chat-avatar')
+            
+            if (nameElement) nameElement.innerText = displayName
+            if (lastMessageElement) lastMessageElement.innerText = lastMessage
+            if (avatarElement) avatarElement.innerText = getAvatarLetter(displayName)
+            
+        } else {
+            // Если чата нет - создаем новый и добавляем в начало списка
+            const list = document.getElementById("chatList")
+            const newChat = createChatElement(updatedChat)
+            list.prepend(newChat) // Добавляем в начало
+            
+            // Обновляем счетчик
+            const count = document.getElementById("chatsCount")
+            count.textContent = parseInt(count.textContent) + 1
+        }
+        
+    } catch (error) {
+        console.error("Error updating single chat:", error)
+    }
+}
 // Открыть чат
 function openChat(phone, displayName) {
     currentChat = phone
-
+    
     // Загружаем профиль для отображения в шапке
     fetch(`/user/${phone}`)
         .then(res => res.json())
@@ -419,15 +488,26 @@ function openChat(phone, displayName) {
             document.getElementById("chatUserPhone").innerText = formatPhone(phone)
             document.getElementById("chatAvatarText").innerText = getAvatarLetter(displayName || phone)
         })
-
+    
     document.getElementById("emptyChat").style.display = "none"
     document.getElementById("chatBlock").style.display = "flex"
-
+    
     if (window.innerWidth <= 768) {
         document.getElementById("sidebar").classList.remove('open')
     }
-
+    
     loadMessages()
+    
+    // Убираем активный класс у всех чатов
+    document.querySelectorAll('.chatItem').forEach(el => {
+        el.classList.remove('active')
+    })
+    
+    // Добавляем активный класс текущему чату
+    const activeChat = document.getElementById(`chat-${phone}`)
+    if (activeChat) {
+        activeChat.classList.add('active')
+    }
 }
 
 // Загрузка истории сообщений
@@ -596,4 +676,5 @@ window.addEventListener('beforeunload', () => {
     if (pingInterval) clearInterval(pingInterval)
     if (reconnectTimeout) clearTimeout(reconnectTimeout)
     if (ws) ws.close(1000, 'Page closed')
+
 })
