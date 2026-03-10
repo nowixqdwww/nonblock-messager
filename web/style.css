@@ -166,7 +166,7 @@ body {
     background: #2f3a4a;
 }
 
-/* Исправленные стили для аватарок */
+/* Стили для аватарок */
 .profile-avatar, 
 .chat-avatar, 
 .chat-user-avatar,
@@ -364,6 +364,10 @@ body {
     align-items: center;
     gap: 15px;
     transition: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .chatItem:hover {
@@ -574,19 +578,24 @@ body {
     padding: 12px 16px;
     border-radius: 18px;
     position: relative;
-    animation: fadeIn 0.3s ease;
     word-wrap: break-word;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.message-text {
+    user-select: text;
+    -webkit-user-select: text;
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.message-time {
+    font-size: 11px;
+    opacity: 0.7;
+    text-align: right;
 }
 
 .message.me {
@@ -601,17 +610,6 @@ body {
     align-self: flex-start;
     border-bottom-left-radius: 4px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.message-text {
-    margin-bottom: 4px;
-    line-height: 1.4;
-}
-
-.message-time {
-    font-size: 11px;
-    opacity: 0.7;
-    text-align: right;
 }
 
 /* Input Area */
@@ -675,6 +673,15 @@ body {
     animation: fadeIn 0.3s ease;
 }
 
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
 .modal-content {
     background: white;
     border-radius: 20px;
@@ -696,6 +703,7 @@ body {
     top: 0;
     background: white;
     border-radius: 20px 20px 0 0;
+    z-index: 10;
 }
 
 .modal-header h2 {
@@ -778,6 +786,24 @@ body {
     border-color: #667eea;
 }
 
+/* Bio textarea */
+.bio-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+}
+
+.bio-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
 /* Avatar upload */
 .avatar-upload {
     text-align: center;
@@ -833,6 +859,10 @@ body {
     cursor: pointer;
 }
 
+.save-profile-btn:hover {
+    background: #5a67d8;
+}
+
 .cancel-profile-btn {
     flex: 1;
     padding: 12px;
@@ -842,6 +872,10 @@ body {
     border-radius: 10px;
     font-size: 16px;
     cursor: pointer;
+}
+
+.cancel-profile-btn:hover {
+    background: #e0e0e0;
 }
 
 /* Profile actions */
@@ -873,6 +907,44 @@ body {
 
 .action-button.primary:hover {
     background: #5a67d8;
+}
+
+/* Context menu */
+.context-menu {
+    position: fixed;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    padding: 8px 0;
+    z-index: 10000;
+    min-width: 200px;
+    animation: fadeIn 0.1s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.context-menu-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: #333;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.context-menu-item:hover {
+    background: #f5f5f5;
+}
+
+.context-menu-item.delete {
+    color: #f87171;
+}
+
+.context-menu-item.delete:hover {
+    background: #fee2e2;
 }
 
 /* Toast уведомления */
@@ -980,6 +1052,22 @@ body {
         min-height: 100px;
         font-size: 40px;
     }
+    
+    /* Mobile context menu */
+    .context-menu {
+        min-width: 180px;
+        font-size: 16px;
+    }
+    
+    .context-menu-item {
+        padding: 15px 20px;
+    }
+    
+    /* Mobile bio textarea */
+    .bio-textarea {
+        font-size: 16px;
+        padding: 10px;
+    }
 }
 
 /* Small phones */
@@ -1064,7 +1152,8 @@ body {
     .send-btn,
     .action-button,
     .upload-btn,
-    .remove-avatar-btn {
+    .remove-avatar-btn,
+    .context-menu-item {
         min-height: 44px;
     }
 
@@ -1075,63 +1164,39 @@ body {
 
 /* No animations */
 .chatItem, .unread-badge, .chat-avatar, .chat-name, .chat-last-message,
-.profile-avatar, .chat-user-avatar, .profile-view-avatar, .avatar-preview {
+.profile-avatar, .chat-user-avatar, .profile-view-avatar, .avatar-preview,
+.message {
     transition: none;
 }
 
-/* Bio textarea */
-.bio-textarea {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #e0e0e0;
+/* Запрещаем выделение на мобильных */
+.no-select {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* Стили для скроллбара */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
     border-radius: 10px;
-    font-size: 14px;
-    font-family: inherit;
-    resize: vertical;
-    min-height: 80px;
-    transition: border-color 0.2s;
 }
 
-.bio-textarea:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-/* Для мобильных */
-@media (max-width: 768px) {
-    .bio-textarea {
-        font-size: 16px;
-        padding: 10px;
-    }
-}
-
-/* Context menu */
-.context-menu {
-    position: fixed;
-    background: white;
+::-webkit-scrollbar-thumb {
+    background: #888;
     border-radius: 10px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-    padding: 8px 0;
-    z-index: 3000;
-    min-width: 200px;
 }
 
-.context-menu-item {
-    padding: 12px 20px;
-    cursor: pointer;
-    transition: background 0.2s;
-    color: #333;
-    font-size: 14px;
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
-.context-menu-item:hover {
-    background: #f5f5f5;
-}
-
-.context-menu-item.delete {
-    color: #f87171;
-}
-
-.context-menu-item.delete:hover {
-    background: #fee2e2;
+/* Для Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
 }
