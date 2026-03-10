@@ -10,6 +10,7 @@ import urllib.parse
 from datetime import datetime
 from pydantic import BaseModel
 import uvicorn
+import hashlib
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -40,13 +41,20 @@ async def get_db():
     conn = await asyncpg.connect(DATABASE_URL)
     return conn
 
-# Функция для кодирования имени файла аватара
+# Функция для создания безопасного имени файла
+def create_safe_filename(phone: str, extension: str) -> str:
+    """Создает безопасное имя файла на основе хеша телефона"""
+    # Используем MD5 хеш телефона для создания безопасного имени
+    phone_hash = hashlib.md5(phone.encode()).hexdigest()[:16]
+    return f"avatar_{phone_hash}{extension}"
+
+# Функция для кодирования имени файла в URL
 def encode_avatar_filename(filename):
     """Кодирует имя файла для безопасного использования в URL"""
     if not filename:
         return ""
-    # Кодируем спецсимволы, особенно +
-    return urllib.parse.quote(filename)
+    # Просто возвращаем имя файла без кодирования, так как оно уже безопасное
+    return filename
 
 # Инициализация базы данных
 async def init_db():
@@ -134,13 +142,17 @@ async def get_user(phone: str):
         await conn.close()
         
         if user:
-            # Кодируем имя файла аватара
+            # Формируем URL аватара
             avatar_filename = user['avatar']
             avatar_url = ""
             if avatar_filename:
-                encoded_filename = encode_avatar_filename(avatar_filename)
-                avatar_url = f"/avatars/{encoded_filename}"
-                logger.info(f"Avatar URL for {phone}: {avatar_url}")
+                # Проверяем, существует ли файл
+                file_path = os.path.join(AVATAR_DIR, avatar_filename)
+                if os.path.exists(file_path):
+                    avatar_url = f"/avatars/{avatar_filename}"
+                    logger.info(f"Avatar URL for {phone}: {avatar_url}")
+                else:
+                    logger.warning(f"Avatar file not found: {file_path}")
             
             return {
                 "phone": user['phone'],
@@ -198,10 +210,9 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
         if not file.content_type.startswith('image/'):
             return JSONResponse(status_code=400, content={"error": "File must be an image"})
         
-        # Создаем безопасное имя файла - заменяем + на _
-        safe_phone = phone.replace('+', '').replace(' ', '')
+        # Создаем безопасное имя файла на основе хеша
         file_extension = os.path.splitext(file.filename)[1]
-        filename = f"{safe_phone}{file_extension}"
+        filename = create_safe_filename(phone, file_extension)
         file_path = os.path.join(AVATAR_DIR, filename)
         
         logger.info(f"Saving avatar to: {file_path}")
@@ -230,9 +241,8 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
         )
         await conn.close()
         
-        # Возвращаем URL с кодированием
-        encoded_filename = encode_avatar_filename(filename)
-        avatar_url = f"/avatars/{encoded_filename}"
+        # Возвращаем URL
+        avatar_url = f"/avatars/{filename}"
         
         logger.info(f"Avatar uploaded for {phone}: {avatar_url}")
         return {"ok": True, "avatar": avatar_url}
@@ -353,7 +363,7 @@ async def clear_chat(data: dict):
     except Exception as e:
         logger.error(f"Error clearing chat: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
-        
+
 @app.post("/search")
 async def search_user(data: SearchUser):
     try:
@@ -367,12 +377,13 @@ async def search_user(data: SearchUser):
         if not user:
             return {"found": False}
         
-        # Кодируем имя файла аватара
+        # Формируем URL аватара
         avatar_filename = user['avatar']
         avatar_url = ""
         if avatar_filename:
-            encoded_filename = encode_avatar_filename(avatar_filename)
-            avatar_url = f"/avatars/{encoded_filename}"
+            file_path = os.path.join(AVATAR_DIR, avatar_filename)
+            if os.path.exists(file_path):
+                avatar_url = f"/avatars/{avatar_filename}"
         
         return {
             "found": True,
@@ -427,12 +438,13 @@ async def get_users(me: str):
             
             display_name = user_data['name'] or user_data['username'] or phone
             
-            # Кодируем имя файла аватара
+            # Формируем URL аватара
             avatar_filename = user_data['avatar']
             avatar_url = ""
             if avatar_filename:
-                encoded_filename = encode_avatar_filename(avatar_filename)
-                avatar_url = f"/avatars/{encoded_filename}"
+                file_path = os.path.join(AVATAR_DIR, avatar_filename)
+                if os.path.exists(file_path):
+                    avatar_url = f"/avatars/{avatar_filename}"
             
             result.append({
                 "phone": user_data['phone'],
@@ -456,14 +468,19 @@ async def get_users(me: str):
 async def check_avatar(filename: str):
     """Проверяет существование файла аватара (для отладки)"""
     try:
-        decoded_filename = urllib.parse.unquote(filename)
-        file_path = os.path.join(AVATAR_DIR, decoded_filename)
+        file_path = os.path.join(AVATAR_DIR, filename)
         exists = os.path.exists(file_path)
+        
+        # Список всех файлов в папке
+        all_files = []
+        if os.path.exists(AVATAR_DIR):
+            all_files = os.listdir(AVATAR_DIR)
+        
         return {
             "filename": filename,
-            "decoded": decoded_filename,
             "exists": exists,
-            "path": file_path
+            "path": file_path,
+            "all_files": all_files[:10]  # Первые 10 файлов
         }
     except Exception as e:
         return {"error": str(e)}
@@ -597,4 +614,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
