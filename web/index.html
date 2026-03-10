@@ -131,7 +131,6 @@
                     <div class="field-value" id="modalUsername"></div>
                 </div>
 
-                <!-- НОВОЕ: О себе -->
                 <div class="profile-view-field">
                     <label>О себе</label>
                     <div class="field-value" id="modalBio"></div>
@@ -177,7 +176,6 @@
                     <input type="text" id="editUsername" placeholder="@username">
                 </div>
                 
-                <!-- НОВОЕ: О себе -->
                 <div class="edit-field">
                     <label>О себе</label>
                     <textarea id="editBio" placeholder="Расскажите о себе..." rows="3" class="bio-textarea"></textarea>
@@ -195,7 +193,14 @@
 
 <!-- Контекстное меню для сообщений -->
 <div id="messageContextMenu" class="context-menu" style="display: none;">
-    <div class="context-menu-item delete" onclick="deleteMessage()">Удалить сообщение</div>
+    <div class="context-menu-item delete" onclick="deleteMessage()">🗑️ Удалить сообщение</div>
+</div>
+
+<!-- Контекстное меню для чатов -->
+<div id="chatContextMenu" class="context-menu" style="display: none;">
+    <div class="context-menu-item delete" onclick="deleteChat()">🗑️ Удалить чат</div>
+    <div class="context-menu-item" onclick="muteChat()">🔕 Заглушить</div>
+    <div class="context-menu-item" onclick="clearChat()">🧹 Очистить историю</div>
 </div>
 
 <!-- Уведомления -->
@@ -204,4 +209,5 @@
 <script src="/app.js"></script>
 </body>
 </html>
+
 
