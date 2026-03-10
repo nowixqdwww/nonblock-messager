@@ -43,18 +43,8 @@ async def get_db():
 
 # Функция для создания безопасного имени файла
 def create_safe_filename(phone: str, extension: str) -> str:
-    """Создает безопасное имя файла на основе хеша телефона"""
-    # Используем MD5 хеш телефона для создания безопасного имени
     phone_hash = hashlib.md5(phone.encode()).hexdigest()[:16]
     return f"avatar_{phone_hash}{extension}"
-
-# Функция для кодирования имени файла в URL
-def encode_avatar_filename(filename):
-    """Кодирует имя файла для безопасного использования в URL"""
-    if not filename:
-        return ""
-    # Просто возвращаем имя файла без кодирования, так как оно уже безопасное
-    return filename
 
 # Инициализация базы данных
 async def init_db():
@@ -72,6 +62,17 @@ async def init_db():
             )
         ''')
         
+        # Таблица настроек конфиденциальности
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS privacy_settings (
+                phone TEXT PRIMARY KEY,
+                phone_privacy TEXT DEFAULT 'everyone',
+                online_privacy TEXT DEFAULT 'everyone',
+                avatar_privacy TEXT DEFAULT 'everyone',
+                FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
+            )
+        ''')
+        
         # Таблица сообщений
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS messages (
@@ -83,23 +84,6 @@ async def init_db():
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
-        # Проверяем и добавляем недостающие колонки
-        columns = await conn.fetch('''
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users'
-        ''')
-        
-        column_names = [col['column_name'] for col in columns]
-        
-        if 'bio' not in column_names:
-            await conn.execute('ALTER TABLE users ADD COLUMN bio TEXT')
-            logger.info("Added bio column to users table")
-        
-        if 'avatar' not in column_names:
-            await conn.execute('ALTER TABLE users ADD COLUMN avatar TEXT')
-            logger.info("Added avatar column to users table")
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -142,18 +126,7 @@ async def get_user(phone: str):
         await conn.close()
         
         if user:
-            # Формируем URL аватара
-            avatar_filename = user['avatar']
-            avatar_url = ""
-            if avatar_filename:
-                # Проверяем, существует ли файл
-                file_path = os.path.join(AVATAR_DIR, avatar_filename)
-                if os.path.exists(file_path):
-                    avatar_url = f"/avatars/{avatar_filename}"
-                    logger.info(f"Avatar URL for {phone}: {avatar_url}")
-                else:
-                    logger.warning(f"Avatar file not found: {file_path}")
-            
+            avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
             return {
                 "phone": user['phone'],
                 "username": user['username'],
@@ -171,7 +144,6 @@ async def change_username(data: UsernameUpdate):
     try:
         conn = await get_db()
         
-        # Проверка уникальности username
         existing = await conn.fetchrow(
             "SELECT phone FROM users WHERE username = $1 AND phone != $2",
             data.username, data.phone
@@ -187,7 +159,6 @@ async def change_username(data: UsernameUpdate):
         name = data.name if data.name else data.username[1:]
         bio = data.bio if data.bio else ""
         
-        # Вставляем или обновляем пользователя
         await conn.execute('''
             INSERT INTO users (phone, username, name, bio, avatar)
             VALUES ($1, $2, $3, $4, '')
@@ -210,17 +181,14 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
         if not file.content_type.startswith('image/'):
             return JSONResponse(status_code=400, content={"error": "File must be an image"})
         
-        # Создаем безопасное имя файла на основе хеша
         file_extension = os.path.splitext(file.filename)[1]
         filename = create_safe_filename(phone, file_extension)
         file_path = os.path.join(AVATAR_DIR, filename)
         
         logger.info(f"Saving avatar to: {file_path}")
         
-        # Удаляем старый аватар если есть
         conn = await get_db()
         
-        # Получаем старый аватар
         old = await conn.fetchrow("SELECT avatar FROM users WHERE phone = $1", phone)
         if old and old['avatar']:
             old_path = os.path.join(AVATAR_DIR, old['avatar'])
@@ -228,20 +196,17 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
                 os.remove(old_path)
                 logger.info(f"Removed old avatar: {old_path}")
         
-        # Сохраняем новый файл
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
         logger.info(f"Saved new avatar: {file_path}")
         
-        # Обновляем запись в БД
         await conn.execute(
             "UPDATE users SET avatar = $1 WHERE phone = $2",
             filename, phone
         )
         await conn.close()
         
-        # Возвращаем URL
         avatar_url = f"/avatars/{filename}"
         
         logger.info(f"Avatar uploaded for {phone}: {avatar_url}")
@@ -281,7 +246,6 @@ async def delete_message(data: DeleteMessage):
     try:
         conn = await get_db()
         
-        # Проверяем, что пользователь - автор сообщения
         message = await conn.fetchrow(
             "SELECT sender FROM messages WHERE id = $1",
             data.message_id
@@ -295,7 +259,6 @@ async def delete_message(data: DeleteMessage):
             await conn.close()
             return {"error": "You can only delete your own messages"}
         
-        # Помечаем сообщение как удаленное
         await conn.execute(
             "UPDATE messages SET is_deleted = 1, text = 'Сообщение удалено' WHERE id = $1",
             data.message_id
@@ -309,36 +272,14 @@ async def delete_message(data: DeleteMessage):
         logger.error(f"Error deleting message: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.get("/last-message/{user1}/{user2}")
-async def get_last_message(user1: str, user2: str):
-    try:
-        conn = await get_db()
-        last_msg = await conn.fetchrow('''
-            SELECT text FROM messages 
-            WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-            AND is_deleted = 0
-            ORDER BY timestamp DESC LIMIT 1
-        ''', user1, user2)
-        await conn.close()
-        
-        return {"last": last_msg['text'] if last_msg else ""}
-        
-    except Exception as e:
-        logger.error(f"Error getting last message: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
 @app.post("/delete-chat")
 async def delete_chat(data: dict):
     try:
         user = data.get("user")
         chat_with = data.get("chat_with")
         
-        if not user or not chat_with:
-            return JSONResponse(status_code=400, content={"error": "Missing parameters"})
-        
         conn = await get_db()
         
-        # Удаляем все сообщения между пользователями
         await conn.execute('''
             DELETE FROM messages 
             WHERE (sender = $1 AND receiver = $2) 
@@ -360,12 +301,8 @@ async def clear_chat(data: dict):
         user = data.get("user")
         chat_with = data.get("chat_with")
         
-        if not user or not chat_with:
-            return JSONResponse(status_code=400, content={"error": "Missing parameters"})
-        
         conn = await get_db()
         
-        # Помечаем сообщения как удаленные (мягкое удаление)
         await conn.execute('''
             UPDATE messages 
             SET is_deleted = 1, text = 'Сообщение удалено'
@@ -382,6 +319,113 @@ async def clear_chat(data: dict):
         logger.error(f"Error clearing chat: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/clear-all-chats")
+async def clear_all_chats(data: dict):
+    try:
+        user = data.get("user")
+        
+        conn = await get_db()
+        
+        await conn.execute('''
+            DELETE FROM messages 
+            WHERE sender = $1 OR receiver = $1
+        ''', user)
+        
+        await conn.close()
+        
+        logger.info(f"All chats cleared for {user}")
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error clearing all chats: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/export-data/{phone}")
+async def export_data(phone: str):
+    try:
+        conn = await get_db()
+        
+        user = await conn.fetchrow(
+            "SELECT phone, username, name, bio, avatar FROM users WHERE phone = $1",
+            phone
+        )
+        
+        messages = await conn.fetch('''
+            SELECT id, sender, receiver, text, timestamp 
+            FROM messages 
+            WHERE sender = $1 OR receiver = $1
+            ORDER BY timestamp
+        ''', phone)
+        
+        chats = await conn.fetch('''
+            SELECT DISTINCT
+                CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
+            FROM messages
+            WHERE sender = $1 OR receiver = $1
+        ''', phone)
+        
+        await conn.close()
+        
+        return {
+            "user": dict(user) if user else None,
+            "messages": [dict(m) for m in messages],
+            "chats": [dict(c) for c in chats],
+            "exported_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error exporting data: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/privacy-settings/{phone}")
+async def get_privacy_settings(phone: str):
+    try:
+        conn = await get_db()
+        settings = await conn.fetchrow('''
+            SELECT phone_privacy, online_privacy, avatar_privacy 
+            FROM privacy_settings 
+            WHERE phone = $1
+        ''', phone)
+        await conn.close()
+        
+        if settings:
+            return {
+                "phone_privacy": settings['phone_privacy'],
+                "online_privacy": settings['online_privacy'],
+                "avatar_privacy": settings['avatar_privacy']
+            }
+        else:
+            return {
+                "phone_privacy": "everyone",
+                "online_privacy": "everyone",
+                "avatar_privacy": "everyone"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting privacy settings: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/privacy-settings/{phone}")
+async def save_privacy_settings(phone: str, settings: dict):
+    try:
+        conn = await get_db()
+        await conn.execute('''
+            INSERT INTO privacy_settings (phone, phone_privacy, online_privacy, avatar_privacy)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (phone) DO UPDATE
+            SET phone_privacy = $2, online_privacy = $3, avatar_privacy = $4
+        ''', phone, settings.get('phone_privacy', 'everyone'),
+            settings.get('online_privacy', 'everyone'),
+            settings.get('avatar_privacy', 'everyone'))
+        await conn.close()
+        
+        logger.info(f"Privacy settings saved for {phone}")
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error saving privacy settings: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/search")
 async def search_user(data: SearchUser):
     try:
@@ -395,9 +439,7 @@ async def search_user(data: SearchUser):
         if not user:
             return {"found": False}
         
-        avatar_filename = user['avatar']
-        avatar_url = f"/avatars/{avatar_filename}" if avatar_filename else ""
-        
+        avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
         return {
             "found": True,
             "phone": user['phone'],
@@ -412,14 +454,12 @@ async def search_user(data: SearchUser):
 
 @app.get("/search-users/{query}")
 async def search_users(query: str):
-    """Поиск пользователей по части username или имени"""
     try:
         if len(query) < 2:
             return {"users": []}
         
         conn = await get_db()
         
-        # Ищем по username (содержит query, без учета регистра)
         users = await conn.fetch('''
             SELECT phone, username, name, avatar 
             FROM users 
@@ -458,7 +498,6 @@ async def get_users(me: str):
     try:
         conn = await get_db()
         
-        # Находим всех собеседников
         contacts = await conn.fetch('''
             SELECT DISTINCT
                 CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
@@ -470,21 +509,18 @@ async def get_users(me: str):
         for contact in contacts:
             phone = contact['contact']
             
-            # Получаем информацию о пользователе
             user_data = await conn.fetchrow(
                 "SELECT phone, username, name, bio, avatar FROM users WHERE phone = $1",
                 phone
             )
             
             if not user_data:
-                # Создаем запись если нет
                 await conn.execute(
                     "INSERT INTO users (phone, avatar) VALUES ($1, '') ON CONFLICT DO NOTHING",
                     phone
                 )
                 user_data = {'phone': phone, 'username': None, 'name': None, 'bio': None, 'avatar': ''}
             
-            # Последнее сообщение
             last_msg = await conn.fetchrow('''
                 SELECT text FROM messages 
                 WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
@@ -493,14 +529,7 @@ async def get_users(me: str):
             ''', me, phone)
             
             display_name = user_data['name'] or user_data['username'] or phone
-            
-            # Формируем URL аватара
-            avatar_filename = user_data['avatar']
-            avatar_url = ""
-            if avatar_filename:
-                file_path = os.path.join(AVATAR_DIR, avatar_filename)
-                if os.path.exists(file_path):
-                    avatar_url = f"/avatars/{avatar_filename}"
+            avatar_url = f"/avatars/{user_data['avatar']}" if user_data['avatar'] else ""
             
             result.append({
                 "phone": user_data['phone'],
@@ -520,27 +549,6 @@ async def get_users(me: str):
         logger.error(f"Error getting users for {me}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.get("/check-avatar/{filename:path}")
-async def check_avatar(filename: str):
-    """Проверяет существование файла аватара (для отладки)"""
-    try:
-        file_path = os.path.join(AVATAR_DIR, filename)
-        exists = os.path.exists(file_path)
-        
-        # Список всех файлов в папке
-        all_files = []
-        if os.path.exists(AVATAR_DIR):
-            all_files = os.listdir(AVATAR_DIR)
-        
-        return {
-            "filename": filename,
-            "exists": exists,
-            "path": file_path,
-            "all_files": all_files[:10]  # Первые 10 файлов
-        }
-    except Exception as e:
-        return {"error": str(e)}
-
 @app.websocket("/ws/{user}")
 async def websocket_endpoint(ws: WebSocket, user: str):
     await ws.accept()
@@ -548,7 +556,6 @@ async def websocket_endpoint(ws: WebSocket, user: str):
     logger.info(f"User {user} connected. Total: {len(clients)}")
     
     try:
-        # Добавляем пользователя в БД
         conn = await get_db()
         await conn.execute(
             "INSERT INTO users (phone, avatar) VALUES ($1, '') ON CONFLICT DO NOTHING",
@@ -578,7 +585,6 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     ''', user, to, text)
                     await conn.close()
 
-                    # Отправляем получателю, если онлайн
                     if to in clients:
                         try:
                             await clients[to].send_json({
@@ -590,7 +596,6 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         except:
                             clients.pop(to, None)
                     
-                    # Отправляем confirmation отправителю
                     await ws.send_json({
                         "action": "message_sent",
                         "to": to,
@@ -613,23 +618,10 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         if to and to in clients:
                             await clients[to].send_json({
                                 "action": "message_deleted",
-                                "message_id": message_id
+                                "message_id": message_id,
+                                "from": user
                             })
 
-                elif action == "status":
-                    to = data.get("to")
-                    online = data.get("online", True)
-                    
-                    if to and to in clients:
-                        try:
-                            await clients[to].send_json({
-                                "action": "status",
-                                "from": user,
-                                "online": online
-                            })
-                        except:
-                            clients.pop(to, None)
-                
                 elif action == "history":
                     chat_user = data.get("user")
                     if chat_user:
@@ -654,6 +646,20 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             await clients[to].send_json({
                                 "action": "typing",
                                 "from": user
+                            })
+                        except:
+                            clients.pop(to, None)
+
+                elif action == "status":
+                    to = data.get("to")
+                    online = data.get("online", True)
+                    
+                    if to and to in clients:
+                        try:
+                            await clients[to].send_json({
+                                "action": "status",
+                                "from": user,
+                                "online": online
                             })
                         except:
                             clients.pop(to, None)
@@ -684,6 +690,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
-
-
