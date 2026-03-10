@@ -986,3 +986,113 @@ body {
 .chatItem, .unread-badge, .chat-avatar, .chat-name, .chat-last-message {
     transition: none;
 }
+
+/* Стили для аватаров */
+.chat-avatar-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatar-upload {
+    text-align: center;
+}
+
+.avatar-preview {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
+    overflow: hidden;
+}
+
+.upload-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.upload-btn, .remove-avatar-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.upload-btn {
+    background: #667eea;
+    color: white;
+}
+
+.upload-btn:hover {
+    background: #5a67d8;
+}
+
+.remove-avatar-btn {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.remove-avatar-btn:hover {
+    background: #e0e0e0;
+}
+
+/* Для аватаров в чатах */
+.chat-avatar {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    overflow: hidden;
+}
+
+.chat-user-avatar {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    overflow: hidden;
+}
+
+/* Для мобильных */
+@media (max-width: 768px) {
+    .chat-avatar {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+    
+    .chat-user-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .avatar-preview {
+        width: 100px;
+        height: 100px;
+        font-size: 40px;
+    }
+}
