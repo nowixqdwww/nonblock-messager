@@ -714,6 +714,7 @@ function loadMessages() {
     }))
 }
 
+
 // Отправка сообщения
 function send() {
     if (!currentChat) {
@@ -738,6 +739,9 @@ function send() {
 
     addMessage(currentUser, text)
     document.getElementById("text").value = ""
+    
+    // НЕМЕДЛЕННО создаем/обновляем чат у отправителя
+    updateSingleChat(currentChat, true)
 }
 
 // Добавление сообщения в окно чата
@@ -953,3 +957,4 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление онлайн статусов
 setInterval(updateOnlineStatus, 5000)
+
