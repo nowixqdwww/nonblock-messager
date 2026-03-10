@@ -926,4 +926,21 @@ body {
     .message-input {
         font-size: 16px;
     }
+
+}
+
+/* Плавное обновление чатов без анимации */
+.chatItem {
+    transition: none; /* Убираем анимацию */
+}
+
+.chat-avatar, .chat-name, .chat-last-message {
+    transition: none; /* Убираем анимацию */
+}
+
+/* Для мобильных */
+@media (max-width: 768px) {
+    .chatItem {
+        transition: none;
+    }
 }
