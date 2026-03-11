@@ -1387,6 +1387,8 @@ function displaySearchResults(users, query) {
     
     if (!resultsDiv) return
     
+    console.log('Search results:', users) // Для отладки
+    
     resultsDiv.innerHTML = ''
     
     if (users.length === 0) {
@@ -1417,8 +1419,8 @@ function createSearchResultItem(user, query) {
         avatarHtml = getAvatarLetter(user.displayName || user.username || '')
     }
     
-    // Сохраняем реальный номер для открытия профиля
-    const realPhone = user.realPhone || user.phone
+    // Используем realPhone для открытия профиля, если он есть
+    const phoneToUse = user.realPhone || user.phone
     
     // Форматируем номер телефона или показываем "Скрыто" с одним замком
     const phoneDisplay = user.phone_hidden 
@@ -1437,7 +1439,15 @@ function createSearchResultItem(user, query) {
     div.onclick = () => {
         document.getElementById('searchUser').value = user.username || user.name || ''
         hideSearchResults()
-        showUserProfile(realPhone, false)
+        
+        // Проверяем, что номер не равен 'hidden'
+        if (phoneToUse === 'hidden') {
+            console.error('Cannot open profile: phone is hidden', user)
+            showToast('Ошибка открытия профиля')
+            return
+        }
+        
+        showUserProfile(phoneToUse, false)
     }
     
     return div
@@ -1522,7 +1532,15 @@ async function searchExactUser(username) {
             return
         }
 
-        showUserProfile(data.phone, false)
+        // Используем реальный номер для открытия профиля
+        const phoneToUse = data.realPhone || data.phone
+        
+        if (phoneToUse === 'hidden') {
+            showToast('Ошибка открытия профиля')
+            return
+        }
+        
+        showUserProfile(phoneToUse, false)
         document.getElementById("searchUser").value = ""
         hideSearchResults()
 
@@ -1531,7 +1549,6 @@ async function searchExactUser(username) {
         showToast("Ошибка при поиске")
     }
 }
-
 // ============= НАСТРОЙКИ =============
 
 function openSettings() {
@@ -1774,3 +1791,4 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000)
+
