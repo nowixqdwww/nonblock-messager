@@ -138,6 +138,10 @@ body {
     cursor: pointer;
 }
 
+.menu-toggle i {
+    font-size: 24px;
+}
+
 .header-actions {
     display: flex;
     align-items: center;
@@ -158,6 +162,10 @@ body {
     align-items: center;
     justify-content: center;
     transition: background 0.2s;
+}
+
+.settings-btn i {
+    font-size: 20px;
 }
 
 .settings-btn:hover {
@@ -225,6 +233,16 @@ body {
     border-radius: 50% !important;
 }
 
+/* Для иконок внутри аватарок */
+.profile-avatar i,
+.chat-avatar i,
+.chat-user-avatar i,
+.profile-view-avatar i,
+.avatar-preview i {
+    font-size: 24px;
+    color: white;
+}
+
 /* Размеры для разных типов аватаров */
 .profile-avatar {
     width: 50px;
@@ -233,6 +251,9 @@ body {
     min-height: 50px;
     max-width: 50px;
     max-height: 50px;
+}
+
+.profile-avatar i {
     font-size: 24px;
 }
 
@@ -243,6 +264,9 @@ body {
     min-height: 50px;
     max-width: 50px;
     max-height: 50px;
+}
+
+.chat-avatar i {
     font-size: 20px;
 }
 
@@ -253,6 +277,9 @@ body {
     min-height: 45px;
     max-width: 45px;
     max-height: 45px;
+}
+
+.chat-user-avatar i {
     font-size: 20px;
 }
 
@@ -263,8 +290,11 @@ body {
     min-height: 120px;
     max-width: 120px;
     max-height: 120px;
-    font-size: 48px;
     margin: 0 auto 20px;
+}
+
+.profile-view-avatar i {
+    font-size: 48px;
 }
 
 .avatar-preview {
@@ -274,8 +304,11 @@ body {
     min-height: 120px;
     max-width: 120px;
     max-height: 120px;
-    font-size: 48px;
     margin: 0 auto 20px;
+}
+
+.avatar-preview i {
+    font-size: 48px;
 }
 
 .profile-info {
@@ -314,6 +347,10 @@ body {
     flex-shrink: 0;
 }
 
+.profile-edit-badge i {
+    font-size: 14px;
+}
+
 /* Search Section */
 .search-section {
     padding: 15px 20px;
@@ -327,9 +364,19 @@ body {
     width: 100%;
 }
 
+.search-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8e9aaf;
+    font-size: 14px;
+    z-index: 1;
+}
+
 .search-input {
     width: 100%;
-    padding: 12px 15px;
+    padding: 12px 15px 12px 40px;
     border: 1px solid #2f3a4a;
     border-radius: 8px;
     background: #1a2533;
@@ -402,6 +449,11 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.search-result-avatar i {
+    font-size: 18px;
+    color: white;
 }
 
 .search-result-info {
@@ -581,6 +633,7 @@ body {
 
 .empty-icon {
     font-size: 64px;
+    color: #667eea;
     margin-bottom: 20px;
 }
 
@@ -621,6 +674,10 @@ body {
     cursor: pointer;
     color: #667eea;
     flex-shrink: 0;
+}
+
+.back-btn i {
+    font-size: 20px;
 }
 
 .chat-user-info {
@@ -675,6 +732,10 @@ body {
     padding: 8px 12px;
     border-radius: 8px;
     color: #666;
+}
+
+.action-btn i {
+    font-size: 20px;
 }
 
 .action-btn:hover {
@@ -769,6 +830,13 @@ body {
     border-radius: 25px;
     transition: background 0.2s;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.send-btn i {
+    font-size: 18px;
 }
 
 .send-btn:hover {
@@ -843,6 +911,10 @@ body {
     color: #666;
     padding: 5px 10px;
     border-radius: 50%;
+}
+
+.close-btn i {
+    font-size: 18px;
 }
 
 .close-btn:hover {
@@ -936,6 +1008,7 @@ body {
     display: flex;
     gap: 10px;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
 .upload-btn, .remove-avatar-btn {
@@ -945,6 +1018,9 @@ body {
     font-size: 14px;
     cursor: pointer;
     transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .upload-btn {
@@ -980,6 +1056,10 @@ body {
     border-radius: 10px;
     font-size: 16px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .save-profile-btn:hover {
@@ -995,6 +1075,10 @@ body {
     border-radius: 10px;
     font-size: 16px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .cancel-profile-btn:hover {
@@ -1017,6 +1101,10 @@ body {
     font-size: 14px;
     cursor: pointer;
     transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
 .action-button.primary {
@@ -1043,6 +1131,14 @@ body {
     margin-bottom: 15px;
     padding-bottom: 5px;
     border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-section h3 i {
+    color: #667eea;
+    font-size: 18px;
 }
 
 .settings-item {
@@ -1105,6 +1201,13 @@ body {
     cursor: pointer;
     transition: background 0.2s;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.settings-button i {
+    font-size: 14px;
 }
 
 .settings-button:hover {
@@ -1144,6 +1247,12 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.context-menu-item i {
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
 }
 
 .context-menu-item:hover {
@@ -1228,6 +1337,10 @@ body {
     transition: background 0.2s;
 }
 
+.zoom-btn i, .rotate-btn i {
+    font-size: 18px;
+}
+
 .zoom-btn:hover, .rotate-btn:hover {
     background: #e0e0e0;
 }
@@ -1294,6 +1407,9 @@ body {
         height: 45px;
         min-width: 45px;
         min-height: 45px;
+    }
+    
+    .profile-avatar i {
         font-size: 22px;
     }
     
@@ -1302,6 +1418,9 @@ body {
         height: 45px;
         min-width: 45px;
         min-height: 45px;
+    }
+    
+    .chat-avatar i {
         font-size: 18px;
     }
     
@@ -1310,6 +1429,9 @@ body {
         height: 40px;
         min-width: 40px;
         min-height: 40px;
+    }
+    
+    .chat-user-avatar i {
         font-size: 18px;
     }
     
@@ -1319,6 +1441,10 @@ body {
         height: 100px;
         min-width: 100px;
         min-height: 100px;
+    }
+    
+    .profile-view-avatar i,
+    .avatar-preview i {
         font-size: 40px;
     }
     
@@ -1422,7 +1548,18 @@ body {
     .zoom-btn, .rotate-btn {
         width: 50px;
         height: 50px;
+    }
+    
+    .zoom-btn i, .rotate-btn i {
         font-size: 24px;
+    }
+    
+    .empty-icon {
+        font-size: 48px;
+    }
+    
+    .send-btn i {
+        font-size: 16px;
     }
 }
 
@@ -1456,6 +1593,9 @@ body {
         height: 40px;
         min-width: 40px;
         min-height: 40px;
+    }
+    
+    .profile-avatar i {
         font-size: 20px;
     }
     
@@ -1464,6 +1604,9 @@ body {
         height: 40px;
         min-width: 40px;
         min-height: 40px;
+    }
+    
+    .chat-avatar i {
         font-size: 16px;
     }
     
@@ -1472,6 +1615,9 @@ body {
         height: 35px;
         min-width: 35px;
         min-height: 35px;
+    }
+    
+    .chat-user-avatar i {
         font-size: 16px;
     }
     
@@ -1482,7 +1628,6 @@ body {
     
     .send-btn {
         padding: 10px 16px;
-        font-size: 18px;
     }
 }
 
@@ -1506,6 +1651,10 @@ body {
         height: 80px;
         min-width: 80px;
         min-height: 80px;
+    }
+    
+    .profile-view-avatar i,
+    .avatar-preview i {
         font-size: 32px;
     }
     
@@ -1550,7 +1699,9 @@ body {
     .action-button,
     .upload-btn,
     .remove-avatar-btn,
-    .context-menu-item {
+    .context-menu-item,
+    .zoom-btn,
+    .rotate-btn {
         min-height: 44px;
     }
 
@@ -1652,4 +1803,9 @@ body {
 .cropper-point.point-se {
     width: 12px;
     height: 12px;
+}
+
+/* Стили для иконок */
+.fas, .far, .fab {
+    pointer-events: none;
 }
