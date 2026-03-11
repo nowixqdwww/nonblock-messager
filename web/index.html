@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/style.css">
     <!-- Cropper.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <!-- Font Awesome для линейных иконок -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="apple-touch-icon" href="/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -29,10 +31,14 @@
     <!-- Левый сайдбар (список чатов) -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+            <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
             <h3>NonBlock</h3>
             <div class="header-actions">
-                <button class="settings-btn" onclick="openSettings()">⚙️</button>
+                <button class="settings-btn" onclick="openSettings()">
+                    <i class="fas fa-cog"></i>
+                </button>
                 <span class="online-status"></span>
             </div>
         </div>
@@ -41,14 +47,14 @@
         <div class="profile-section">
             <div class="profile-header" onclick="openMyProfile()">
                 <div class="profile-avatar" id="myAvatar">
-                    <span id="myAvatarText">👤</span>
+                    <span id="myAvatarText"><i class="fas fa-user"></i></span>
                 </div>
                 <div class="profile-info">
                     <div class="profile-name" id="myDisplayName">Загрузка...</div>
                     <div class="profile-phone" id="myPhone"></div>
                 </div>
                 <div class="profile-edit-badge">
-                    <span class="edit-icon">✎</span>
+                    <i class="fas fa-pen"></i>
                 </div>
             </div>
         </div>
@@ -56,6 +62,7 @@
         <!-- Поиск с автодополнением -->
         <div class="search-section">
             <div class="search-container">
+                <i class="fas fa-search search-icon"></i>
                 <input id="searchUser" placeholder="Поиск по username или имени" class="search-input" autocomplete="off">
                 <div id="searchResults" class="search-results" style="display: none;"></div>
             </div>
@@ -74,7 +81,7 @@
         <!-- Пустой чат -->
         <div id="emptyChat" class="empty-chat">
             <div class="empty-chat-content">
-                <div class="empty-icon">💬</div>
+                <i class="fas fa-comment-dots empty-icon"></i>
                 <h3>Выберите чат</h3>
                 <p>Начните общение с другом</p>
             </div>
@@ -84,10 +91,12 @@
         <div id="chatBlock" class="chat-block">
             <!-- Шапка чата с профилем собеседника -->
             <div class="chat-header" id="chatHeader" onclick="openChatProfile()">
-                <button class="back-btn" onclick="closeChat(event)">←</button>
+                <button class="back-btn" onclick="closeChat(event)">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
                 <div class="chat-user-info">
                     <div class="chat-user-avatar" id="chatAvatar">
-                        <span id="chatAvatarText">👤</span>
+                        <span id="chatAvatarText"><i class="fas fa-user"></i></span>
                     </div>
                     <div class="chat-user-details">
                         <span class="chat-user-name" id="chatUserName">Загрузка...</span>
@@ -96,7 +105,9 @@
                     </div>
                 </div>
                 <div class="chat-actions">
-                    <button class="action-btn" onclick="openChatProfile()">📋</button>
+                    <button class="action-btn" onclick="openChatProfile()">
+                        <i class="fas fa-user"></i>
+                    </button>
                 </div>
             </div>
 
@@ -106,7 +117,9 @@
             <!-- Ввод сообщения -->
             <div class="input-area">
                 <input id="text" placeholder="Напишите сообщение..." class="message-input">
-                <button onclick="send()" class="send-btn">📤</button>
+                <button onclick="send()" class="send-btn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -117,13 +130,15 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Профиль</h2>
-            <button class="close-btn" onclick="closeModal()">✕</button>
+            <button class="close-btn" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="modal-body">
             <!-- Просмотр профиля -->
             <div class="profile-view" id="profileView">
                 <div class="profile-view-avatar" id="modalAvatar">
-                    <span id="modalAvatarText">👤</span>
+                    <span id="modalAvatarText"><i class="fas fa-user"></i></span>
                 </div>
                 
                 <div class="profile-view-field">
@@ -162,12 +177,16 @@
                 <div class="edit-field avatar-upload">
                     <label>Аватар</label>
                     <div class="avatar-preview" id="avatarPreview">
-                        <span id="previewAvatarText">👤</span>
+                        <span id="previewAvatarText"><i class="fas fa-user"></i></span>
                     </div>
                     <div class="upload-controls">
                         <input type="file" id="avatarInput" accept="image/*" style="display: none;">
-                        <button onclick="document.getElementById('avatarInput').click()" class="upload-btn">Выбрать фото</button>
-                        <button onclick="removeAvatar()" class="remove-avatar-btn">Удалить</button>
+                        <button onclick="document.getElementById('avatarInput').click()" class="upload-btn">
+                            <i class="fas fa-camera"></i> Выбрать фото
+                        </button>
+                        <button onclick="removeAvatar()" class="remove-avatar-btn">
+                            <i class="fas fa-trash-alt"></i> Удалить
+                        </button>
                     </div>
                 </div>
 
@@ -188,8 +207,12 @@
 
                 <!-- Кнопки действий -->
                 <div class="edit-actions">
-                    <button onclick="saveProfile()" class="save-profile-btn">Сохранить</button>
-                    <button onclick="cancelEdit()" class="cancel-profile-btn">Отмена</button>
+                    <button onclick="saveProfile()" class="save-profile-btn">
+                        <i class="fas fa-check"></i> Сохранить
+                    </button>
+                    <button onclick="cancelEdit()" class="cancel-profile-btn">
+                        <i class="fas fa-times"></i> Отмена
+                    </button>
                 </div>
             </div>
         </div>
@@ -201,11 +224,13 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Настройки</h2>
-            <button class="close-btn" onclick="closeSettings()">✕</button>
+            <button class="close-btn" onclick="closeSettings()">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="modal-body">
             <div class="settings-section">
-                <h3>Конфиденциальность</h3>
+                <h3><i class="fas fa-shield-alt"></i> Конфиденциальность</h3>
                 
                 <div class="settings-item">
                     <div class="settings-item-info">
@@ -245,14 +270,16 @@
             </div>
 
             <div class="settings-section">
-                <h3>Безопасность</h3>
+                <h3><i class="fas fa-lock"></i> Безопасность</h3>
                 
                 <div class="settings-item">
                     <div class="settings-item-info">
                         <div class="settings-item-title">Блокировка</div>
                         <div class="settings-item-description">Заблокированные пользователи</div>
                     </div>
-                    <button class="settings-button" onclick="openBlockedUsers()">Управление</button>
+                    <button class="settings-button" onclick="openBlockedUsers()">
+                        <i class="fas fa-ban"></i> Управление
+                    </button>
                 </div>
 
                 <div class="settings-item">
@@ -260,19 +287,23 @@
                         <div class="settings-item-title">Активные сессии</div>
                         <div class="settings-item-description">Устройства, где выполнен вход</div>
                     </div>
-                    <button class="settings-button" onclick="openSessions()">Управление</button>
+                    <button class="settings-button" onclick="openSessions()">
+                        <i class="fas fa-mobile-alt"></i> Управление
+                    </button>
                 </div>
             </div>
 
             <div class="settings-section">
-                <h3>Данные и хранилище</h3>
+                <h3><i class="fas fa-database"></i> Данные и хранилище</h3>
                 
                 <div class="settings-item">
                     <div class="settings-item-info">
                         <div class="settings-item-title">Очистить все чаты</div>
                         <div class="settings-item-description">Удалить историю всех сообщений</div>
                     </div>
-                    <button class="settings-button danger" onclick="clearAllChats()">Очистить</button>
+                    <button class="settings-button danger" onclick="clearAllChats()">
+                        <i class="fas fa-trash-alt"></i> Очистить
+                    </button>
                 </div>
 
                 <div class="settings-item">
@@ -280,7 +311,9 @@
                         <div class="settings-item-title">Экспорт данных</div>
                         <div class="settings-item-description">Скачать все свои данные</div>
                     </div>
-                    <button class="settings-button" onclick="exportData()">Экспорт</button>
+                    <button class="settings-button" onclick="exportData()">
+                        <i class="fas fa-download"></i> Экспорт
+                    </button>
                 </div>
             </div>
         </div>
@@ -292,7 +325,9 @@
     <div class="modal-content avatar-editor-content">
         <div class="modal-header">
             <h2>Редактировать аватар</h2>
-            <button class="close-btn" onclick="closeAvatarEditor()">✕</button>
+            <button class="close-btn" onclick="closeAvatarEditor()">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="modal-body">
             <div class="avatar-editor-container">
@@ -300,17 +335,21 @@
             </div>
             <div class="avatar-editor-controls">
                 <div class="zoom-controls">
-                    <button onclick="zoomOut()" class="zoom-btn">−</button>
+                    <button onclick="zoomOut()" class="zoom-btn"><i class="fas fa-search-minus"></i></button>
                     <span id="zoomLevel">100%</span>
-                    <button onclick="zoomIn()" class="zoom-btn">+</button>
+                    <button onclick="zoomIn()" class="zoom-btn"><i class="fas fa-search-plus"></i></button>
                 </div>
                 <div class="rotate-controls">
-                    <button onclick="rotateLeft()" class="rotate-btn">↺</button>
-                    <button onclick="rotateRight()" class="rotate-btn">↻</button>
+                    <button onclick="rotateLeft()" class="rotate-btn"><i class="fas fa-undo-alt"></i></button>
+                    <button onclick="rotateRight()" class="rotate-btn"><i class="fas fa-redo-alt"></i></button>
                 </div>
                 <div class="editor-actions">
-                    <button onclick="saveCroppedAvatar()" class="save-profile-btn">Сохранить</button>
-                    <button onclick="closeAvatarEditor()" class="cancel-profile-btn">Отмена</button>
+                    <button onclick="saveCroppedAvatar()" class="save-profile-btn">
+                        <i class="fas fa-check"></i> Сохранить
+                    </button>
+                    <button onclick="closeAvatarEditor()" class="cancel-profile-btn">
+                        <i class="fas fa-times"></i> Отмена
+                    </button>
                 </div>
             </div>
         </div>
@@ -319,14 +358,22 @@
 
 <!-- Контекстное меню для сообщений -->
 <div id="messageContextMenu" class="context-menu" style="display: none;">
-    <div class="context-menu-item delete" onclick="deleteMessage()">🗑️ Удалить сообщение</div>
+    <div class="context-menu-item delete" onclick="deleteMessage()">
+        <i class="fas fa-trash-alt"></i> Удалить сообщение
+    </div>
 </div>
 
 <!-- Контекстное меню для чатов -->
 <div id="chatContextMenu" class="context-menu" style="display: none;">
-    <div class="context-menu-item delete" onclick="deleteChat()">🗑️ Удалить чат</div>
-    <div class="context-menu-item" onclick="muteChat()">🔕 Заглушить</div>
-    <div class="context-menu-item" onclick="clearChat()">🧹 Очистить историю</div>
+    <div class="context-menu-item delete" onclick="deleteChat()">
+        <i class="fas fa-trash-alt"></i> Удалить чат
+    </div>
+    <div class="context-menu-item" onclick="muteChat()">
+        <i class="fas fa-bell-slash"></i> Заглушить
+    </div>
+    <div class="context-menu-item" onclick="clearChat()">
+        <i class="fas fa-eraser"></i> Очистить историю
+    </div>
 </div>
 
 <!-- Уведомления -->
