@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <!-- Font Awesome для линейных иконок -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (ВАЖНО: добавить перед app.js) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
     <link rel="apple-touch-icon" href="/icon.png">
@@ -25,7 +25,7 @@
         <p>Введите номер телефона</p>
         <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
         <button onclick="login()" class="login-btn">
-            <i class="fas fa-paper-plane"></i> Войти
+            <i class="fas fa-paper-plane"></i> Получить код
         </button>
     </div>
 </div>
@@ -325,6 +325,106 @@
     </div>
 </div>
 
+<!-- Модальное окно для ввода SMS кода -->
+<div id="verificationModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Подтверждение номера</h2>
+            <button class="close-btn" onclick="closeVerificationModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Мы отправили SMS с кодом на номер <br> <strong id="displayPhone"></strong></p>
+            <input type="text" id="verificationCode" placeholder="XXXXXX" class="login-input" maxlength="6">
+            <button onclick="submitVerificationCode()" class="login-btn">
+                <i class="fas fa-check"></i> Подтвердить
+            </button>
+            <button onclick="resendCode()" class="cancel-profile-btn" style="margin-top: 10px;">
+                <i class="fas fa-redo"></i> Отправить снова
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания пароля (при первой регистрации) -->
+<div id="passwordSetupModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Создание пароля</h2>
+            <button class="close-btn" onclick="closePasswordSetup()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Придумайте пароль для входа в аккаунт</p>
+            <input type="password" id="newPassword" placeholder="Пароль" class="login-input" oninput="checkPasswordStrength(this.value)">
+            <input type="password" id="confirmPassword" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
+            
+            <!-- Индикатор силы пароля -->
+            <div class="password-strength" id="passwordStrength">
+                <div class="strength-bar" id="strengthBar"></div>
+            </div>
+            
+            <!-- Требования к паролю -->
+            <div class="password-requirements">
+                <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
+                <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
+                <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
+            </div>
+            
+            <button onclick="savePassword()" class="login-btn" id="savePasswordBtn" disabled>
+                <i class="fas fa-check"></i> Сохранить пароль
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для смены пароля -->
+<div id="changePasswordModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Смена пароля</h2>
+            <button class="close-btn" onclick="closeChangePassword()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="password" id="currentPassword" placeholder="Текущий пароль" class="login-input">
+            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;">
+            <input type="password" id="confirmPasswordChange" placeholder="Подтвердите новый пароль" class="login-input" style="margin-top: 10px;">
+            
+            <!-- Индикатор силы пароля для смены -->
+            <div class="password-strength" id="changePasswordStrength">
+                <div class="strength-bar" id="changeStrengthBar"></div>
+            </div>
+            
+            <button onclick="changePassword()" class="login-btn" style="margin-top: 20px;">
+                <i class="fas fa-key"></i> Сменить пароль
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для ввода пароля при входе (альтернатива prompt) -->
+<div id="passwordLoginModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Введите пароль</h2>
+            <button class="close-btn" onclick="document.getElementById('passwordLoginModal').classList.remove('show')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="tempPhone">
+            <input type="password" id="loginPassword" placeholder="Пароль" class="login-input">
+            <button onclick="submitPasswordLogin()" class="login-btn">
+                <i class="fas fa-sign-in-alt"></i> Войти
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Модальное окно для редактирования аватара -->
 <div id="avatarEditorModal" class="modal">
     <div class="modal-content avatar-editor-content">
@@ -361,81 +461,6 @@
     </div>
 </div>
 
-<!-- Модальное окно для ввода SMS кода -->
-<div id="verificationModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Подтверждение номера</h2>
-            <button class="close-btn" onclick="closeVerificationModal()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <p>Мы отправили SMS с кодом на номер <br> <strong id="displayPhone"></strong></p>
-            <input type="text" id="verificationCode" placeholder="XXXXXX" class="login-input" maxlength="6">
-            <button onclick="submitVerificationCode()" class="login-btn">
-                <i class="fas fa-check"></i> Подтвердить
-            </button>
-            <button onclick="resendCode()" class="cancel-profile-btn" style="margin-top: 10px;">
-                <i class="fas fa-redo"></i> Отправить снова
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Добавьте после модального окна для SMS кода -->
-
-<!-- Модальное окно для создания пароля (при первой регистрации) -->
-<div id="passwordSetupModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Создание пароля</h2>
-            <button class="close-btn" onclick="closePasswordSetup()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <p>Придумайте пароль для входа в аккаунт</p>
-            <input type="password" id="newPassword" placeholder="Пароль" class="login-input">
-            <input type="password" id="confirmPassword" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
-            <div class="password-strength" id="passwordStrength">
-                <div class="strength-bar" id="strengthBar"></div>
-            </div>
-            <div class="password-requirements">
-                <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
-                <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
-                <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
-            </div>
-            <button onclick="savePassword()" class="login-btn" id="savePasswordBtn" disabled>
-                <i class="fas fa-check"></i> Сохранить пароль
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Модальное окно для смены пароля (в настройках) -->
-<div id="changePasswordModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Смена пароля</h2>
-            <button class="close-btn" onclick="closeChangePassword()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <input type="password" id="currentPassword" placeholder="Текущий пароль" class="login-input">
-            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;">
-            <input type="password" id="confirmPasswordChange" placeholder="Подтвердите новый пароль" class="login-input" style="margin-top: 10px;">
-            <div class="password-strength" id="changePasswordStrength">
-                <div class="strength-bar" id="changeStrengthBar"></div>
-            </div>
-            <button onclick="changePassword()" class="login-btn" style="margin-top: 20px;">
-                <i class="fas fa-key"></i> Сменить пароль
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- Контейнер для reCAPTCHA (невидимый) -->
 <div id="recaptcha-container"></div>
 
@@ -464,6 +489,7 @@
 
 <!-- Cropper.js JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+<!-- Ваш app.js должен быть подключен после всех библиотек -->
 <script src="/app.js"></script>
 </body>
 </html>
