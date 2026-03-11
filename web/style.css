@@ -14,7 +14,7 @@ body {
 }
 
 /* Login Screen */
-#loginScreen {
+#loginScreen, #registerScreen {
     position: fixed;
     top: 0;
     left: 0;
@@ -94,6 +94,56 @@ body {
 
 .login-btn:active {
     transform: scale(0.98);
+}
+
+/* Password strength indicator */
+.password-strength {
+    width: 100%;
+    height: 5px;
+    background: #f0f0f0;
+    border-radius: 5px;
+    margin: 15px 0 10px;
+    overflow: hidden;
+}
+
+.strength-bar {
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s, background-color 0.3s;
+}
+
+.strength-bar.weak {
+    background-color: #f87171;
+    width: 33%;
+}
+
+.strength-bar.medium {
+    background-color: #fbbf24;
+    width: 66%;
+}
+
+.strength-bar.strong {
+    background-color: #4ade80;
+    width: 100%;
+}
+
+.password-requirements {
+    text-align: left;
+    margin: 10px 0;
+    font-size: 13px;
+}
+
+.requirement {
+    margin: 5px 0;
+    color: #666;
+}
+
+.requirement.met {
+    color: #4ade80;
+}
+
+.requirement i {
+    margin-right: 5px;
 }
 
 /* App Layout */
@@ -1779,6 +1829,25 @@ body {
     color: #c62828;
 }
 
+/* Password visibility toggle */
+.password-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #999;
+}
+
+.password-toggle:hover {
+    color: #667eea;
+}
+
 /* Cropper.js custom styles */
 .cropper-view-box,
 .cropper-face {
@@ -1808,105 +1877,4 @@ body {
 /* Стили для иконок */
 .fas, .far, .fab {
     pointer-events: none;
-}
-
-/* Стили для модального окна подтверждения */
-#verificationModal .modal-body {
-    text-align: center;
-}
-
-#verificationModal p {
-    margin: 20px 0;
-    color: #666;
-}
-
-#verificationModal #displayPhone {
-    color: #667eea;
-    font-size: 18px;
-}
-
-#verificationModal .login-input {
-    text-align: center;
-    font-size: 24px;
-    letter-spacing: 8px;
-    margin: 20px 0;
-}
-
-#verificationModal .cancel-profile-btn {
-    width: 100%;
-    background: #f0f0f0;
-    color: #666;
-}
-
-#verificationModal .cancel-profile-btn:hover {
-    background: #e0e0e0;
-}
-
-/* Password strength indicator */
-.password-strength {
-    width: 100%;
-    height: 5px;
-    background: #f0f0f0;
-    border-radius: 5px;
-    margin: 15px 0 10px;
-    overflow: hidden;
-}
-
-.strength-bar {
-    height: 100%;
-    width: 0%;
-    transition: width 0.3s, background-color 0.3s;
-}
-
-.strength-bar.weak {
-    background-color: #f87171;
-    width: 33%;
-}
-
-.strength-bar.medium {
-    background-color: #fbbf24;
-    width: 66%;
-}
-
-.strength-bar.strong {
-    background-color: #4ade80;
-    width: 100%;
-}
-
-.password-requirements {
-    text-align: left;
-    margin: 10px 0;
-    font-size: 13px;
-}
-
-.requirement {
-    margin: 5px 0;
-    color: #666;
-}
-
-.requirement.met {
-    color: #4ade80;
-}
-
-.requirement i {
-    margin-right: 5px;
-}
-
-/* Password visibility toggle */
-.password-input-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.password-toggle {
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    color: #999;
-}
-
-.password-toggle:hover {
-    color: #667eea;
 }
