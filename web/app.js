@@ -510,7 +510,7 @@ async function showUserProfile(phone, isMyProfile = false) {
         // Если номер скрыт, но мы открываем профиль через поиск
         let actualPhone = phone
         if (phone === 'hidden') {
-            showToast("Ошибка загрузки профиля")
+            showToast("Не удалось загрузить профиль")
             return
         }
         
@@ -1417,7 +1417,10 @@ function createSearchResultItem(user, query) {
         avatarHtml = getAvatarLetter(user.displayName || user.username || '')
     }
     
-    // Форматируем номер телефона или показываем "Скрыто"
+    // Сохраняем реальный номер для открытия профиля
+    const realPhone = user.realPhone || user.phone
+    
+    // Форматируем номер телефона или показываем "Скрыто" с одним замком
     const phoneDisplay = user.phone_hidden 
         ? '<span class="search-result-phone hidden">🔒 Скрыто</span>' 
         : `<span class="search-result-phone">${formatPhone(user.phone)}</span>`
@@ -1434,7 +1437,7 @@ function createSearchResultItem(user, query) {
     div.onclick = () => {
         document.getElementById('searchUser').value = user.username || user.name || ''
         hideSearchResults()
-        showUserProfile(user.phone, false)
+        showUserProfile(realPhone, false)
     }
     
     return div
