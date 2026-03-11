@@ -62,14 +62,14 @@ function formatPhone(phone) {
 }
 
 function getAvatarLetter(name) {
-    if (!name) return '👤'
+    if (!name) return '<i class="fas fa-user"></i>'
     if (name.startsWith('@') && name.length > 1) {
         return name[1].toUpperCase()
     }
     if (name.length > 0) {
         return name[0].toUpperCase()
     }
-    return '👤'
+    return '<i class="fas fa-user"></i>'
 }
 
 function escapeHtml(text) {
@@ -252,9 +252,9 @@ function createChatElement(chat) {
     
     let avatarHtml
     if (chat.avatar) {
-        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
+        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
     } else {
-        avatarHtml = escapeHtml(getAvatarLetter(displayName))
+        avatarHtml = '<i class="fas fa-user"></i>'
     }
     
     const isOnline = window.clients && window.clients[chat.phone] === true
@@ -397,9 +397,9 @@ async function updateSingleChat(phone, moveToTop = false) {
             if (lastMessageElement) lastMessageElement.innerText = lastMessage
             
             if (updatedChat.avatar) {
-                avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
+                avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
             } else {
-                avatarElement.innerText = getAvatarLetter(displayName)
+                avatarElement.innerHTML = '<i class="fas fa-user"></i>'
             }
             
             const isOnline = window.clients && window.clients[phone] === true
@@ -485,9 +485,9 @@ async function loadUserProfile() {
         
         const myAvatar = document.getElementById("myAvatarText")
         if (data.avatar) {
-            myAvatar.innerHTML = `<img src="${data.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
+            myAvatar.innerHTML = `<img src="${data.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
         } else {
-            myAvatar.innerText = getAvatarLetter(displayName)
+            myAvatar.innerHTML = '<i class="fas fa-user"></i>'
         }
         
     } catch (error) {
@@ -530,9 +530,9 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         const modalAvatar = document.getElementById('modalAvatarText')
         if (user.avatar && (isMyProfile || settings.avatar_privacy !== 'nobody')) {
-            modalAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
+            modalAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
         } else {
-            modalAvatar.innerText = getAvatarLetter(displayName)
+            modalAvatar.innerHTML = '<i class="fas fa-user"></i>'
         }
         
         document.getElementById('modalName').innerText = user.name || 'Не указано'
@@ -563,7 +563,7 @@ async function showUserProfile(phone, isMyProfile = false) {
             
             const editBtn = document.createElement('button')
             editBtn.className = 'action-button primary'
-            editBtn.innerText = 'Редактировать профиль'
+            editBtn.innerHTML = '<i class="fas fa-pen"></i> Редактировать профиль'
             editBtn.onclick = () => {
                 document.getElementById('editName').value = user.name || ''
                 document.getElementById('editUsername').value = user.username || ''
@@ -573,7 +573,7 @@ async function showUserProfile(phone, isMyProfile = false) {
                 if (user.avatar) {
                     previewAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
                 } else {
-                    previewAvatar.innerText = getAvatarLetter(displayName)
+                    previewAvatar.innerHTML = '<i class="fas fa-user"></i>'
                 }
                 
                 profileView.style.display = 'none'
@@ -587,7 +587,7 @@ async function showUserProfile(phone, isMyProfile = false) {
             
             const messageBtn = document.createElement('button')
             messageBtn.className = 'action-button primary'
-            messageBtn.innerText = 'Написать сообщение'
+            messageBtn.innerHTML = '<i class="fas fa-comment"></i> Написать сообщение'
             messageBtn.onclick = () => {
                 closeModal()
                 openChat(phone, displayName)
@@ -771,7 +771,7 @@ async function removeAvatar() {
         
         showToast('Аватар удален')
         
-        document.getElementById('previewAvatarText').innerText = '👤'
+        document.getElementById('previewAvatarText').innerHTML = '<i class="fas fa-user"></i>'
         document.getElementById('avatarInput').value = ''
         
         closeAvatarEditor()
@@ -860,9 +860,9 @@ function openChat(phone, displayName) {
             
             const chatAvatar = document.getElementById("chatAvatarText")
             if (user.avatar) {
-                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${name}')">`
+                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
             } else {
-                chatAvatar.innerText = getAvatarLetter(name)
+                chatAvatar.innerHTML = '<i class="fas fa-user"></i>'
             }
             
             const isOnline = window.clients && window.clients[phone] === true
@@ -872,7 +872,7 @@ function openChat(phone, displayName) {
         .catch(() => {
             document.getElementById("chatUserName").innerText = displayName || phone
             document.getElementById("chatUserPhone").innerText = formatPhone(phone)
-            document.getElementById("chatAvatarText").innerText = getAvatarLetter(displayName || phone)
+            document.getElementById("chatAvatarText").innerHTML = '<i class="fas fa-user"></i>'
         })
     
     document.getElementById("emptyChat").style.display = "none"
@@ -1387,7 +1387,7 @@ function displaySearchResults(users, query) {
     
     if (!resultsDiv) return
     
-    console.log('Search results:', users) // Для отладки
+    console.log('Search results:', users)
     
     resultsDiv.innerHTML = ''
     
@@ -1416,7 +1416,7 @@ function createSearchResultItem(user, query) {
     if (user.avatar) {
         avatarHtml = `<img src="${user.avatar}" alt="avatar">`
     } else {
-        avatarHtml = getAvatarLetter(user.displayName || user.username || '')
+        avatarHtml = '<i class="fas fa-user"></i>'
     }
     
     // Используем realPhone для открытия профиля, если он есть
@@ -1549,6 +1549,7 @@ async function searchExactUser(username) {
         showToast("Ошибка при поиске")
     }
 }
+
 // ============= НАСТРОЙКИ =============
 
 function openSettings() {
@@ -1791,4 +1792,3 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000)
-
