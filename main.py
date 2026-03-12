@@ -245,15 +245,22 @@ async def login(data: UserLogin):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/set-password")
-async def set_password(data: SetPassword):
+async def set_password(data: dict):
     """Установка пароля для существующего пользователя"""
     try:
-        phone = data.phone
-        password = data.password
+        phone = data.get("phone")
+        password = data.get("password")
+        
+        print(f"Setting password for {phone}")  # Для отладки
+        print(f"Password (base64): {password}")
         
         # Декодируем base64
+        import base64
         decoded = base64.b64decode(password).decode()
+        print(f"Password (decoded): {decoded}")
+        
         hashed = hash_password(decoded)
+        print(f"Password (hashed): {hashed}")
         
         conn = await get_db()
         
@@ -268,6 +275,7 @@ async def set_password(data: SetPassword):
         
     except Exception as e:
         logger.error(f"Error setting password: {e}")
+        print(f"Error: {e}")  # Для отладки
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/auth/change-password")
@@ -864,4 +872,5 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
 
