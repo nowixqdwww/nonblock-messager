@@ -148,10 +148,6 @@ body {
     color: #4ade80;
 }
 
-.requirement i {
-    margin-right: 5px;
-}
-
 /* App Layout */
 .app {
     display: none;
@@ -289,12 +285,12 @@ body {
     border-radius: 50% !important;
 }
 
-/* Для иконок внутри аватарок */
-.profile-avatar i,
-.chat-avatar i,
-.chat-user-avatar i,
-.profile-view-avatar i,
-.avatar-preview i {
+/* Для букв внутри аватарок */
+.profile-avatar span,
+.chat-avatar span,
+.chat-user-avatar span,
+.profile-view-avatar span,
+.avatar-preview span {
     font-size: 24px;
     color: white;
 }
@@ -309,7 +305,7 @@ body {
     max-height: 50px;
 }
 
-.profile-avatar i {
+.profile-avatar span {
     font-size: 24px;
 }
 
@@ -322,7 +318,7 @@ body {
     max-height: 50px;
 }
 
-.chat-avatar i {
+.chat-avatar span {
     font-size: 20px;
 }
 
@@ -335,7 +331,7 @@ body {
     max-height: 45px;
 }
 
-.chat-user-avatar i {
+.chat-user-avatar span {
     font-size: 20px;
 }
 
@@ -349,7 +345,7 @@ body {
     margin: 0 auto 20px;
 }
 
-.profile-view-avatar i {
+.profile-view-avatar span {
     font-size: 48px;
 }
 
@@ -363,7 +359,7 @@ body {
     margin: 0 auto 20px;
 }
 
-.avatar-preview i {
+.avatar-preview span {
     font-size: 48px;
 }
 
@@ -507,7 +503,7 @@ body {
     object-fit: cover;
 }
 
-.search-result-avatar i {
+.search-result-avatar span {
     font-size: 18px;
     color: white;
 }
@@ -851,6 +847,18 @@ body {
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
+/* Стикеры в сообщениях */
+.message.sticker {
+    background: none;
+    padding: 5px;
+}
+
+.message.sticker img {
+    max-width: 150px;
+    max-height: 150px;
+    border-radius: 10px;
+}
+
 /* Input Area */
 .input-area {
     display: flex;
@@ -860,6 +868,21 @@ body {
     gap: 10px;
     align-items: center;
     flex-shrink: 0;
+}
+
+.emoji-sticker-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 50%;
+    color: #666;
+    transition: background 0.2s;
+}
+
+.emoji-sticker-btn:hover {
+    background: #f0f0f0;
 }
 
 .message-input {
@@ -1414,6 +1437,208 @@ body {
     margin-top: 10px;
 }
 
+/* Emoji and Sticker Modal */
+.emoji-sticker-tabs {
+    display: flex;
+    gap: 10px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    transition: all 0.2s;
+}
+
+.tab-btn i {
+    margin-right: 5px;
+}
+
+.tab-btn.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+}
+
+.tab-content {
+    display: none;
+    padding: 20px 0;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Emoji Mart styles */
+#emoji-picker {
+    min-height: 350px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Переопределяем стили Emoji Mart для лучшей интеграции */
+.emoji-mart {
+    width: 100% !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-family: inherit !important;
+}
+
+.emoji-mart-bar {
+    display: none !important;
+}
+
+.emoji-mart-search {
+    padding: 10px !important;
+}
+
+.emoji-mart-search input {
+    width: 100% !important;
+    padding: 10px !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+}
+
+.emoji-mart-category-label {
+    background: white !important;
+    color: #333 !important;
+    font-weight: bold !important;
+    padding: 10px !important;
+}
+
+.emoji-mart-emoji {
+    cursor: pointer !important;
+    padding: 5px !important;
+}
+
+.emoji-mart-emoji:hover {
+    background: #f0f0f0 !important;
+    border-radius: 5px !important;
+}
+
+.emoji-mart-emoji span {
+    font-size: 24px !important;
+}
+
+/* Sticker styles */
+.sticker-packs {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.sticker-pack {
+    margin-bottom: 20px;
+}
+
+.sticker-pack h4 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 14px;
+}
+
+.sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 10px;
+}
+
+.sticker-item {
+    width: 80px;
+    height: 80px;
+    cursor: pointer;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.2s;
+    border: 2px solid transparent;
+}
+
+.sticker-item:hover {
+    transform: scale(1.1);
+    border-color: #667eea;
+}
+
+.sticker-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Upload area */
+.sticker-upload {
+    text-align: center;
+}
+
+.info-text {
+    color: #999;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.upload-area {
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 40px 20px;
+    margin: 20px 0;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.upload-area:hover {
+    border-color: #667eea;
+}
+
+.upload-area.dragover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: #ccc;
+    margin-bottom: 10px;
+}
+
+.sticker-preview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.preview-item {
+    position: relative;
+    width: 100px;
+    height: 100px;
+}
+
+.preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.preview-item .remove-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    background: #f87171;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
 /* Mobile styles */
 @media (max-width: 768px) {
     .sidebar {
@@ -1465,7 +1690,7 @@ body {
         min-height: 45px;
     }
     
-    .profile-avatar i {
+    .profile-avatar span {
         font-size: 22px;
     }
     
@@ -1476,7 +1701,7 @@ body {
         min-height: 45px;
     }
     
-    .chat-avatar i {
+    .chat-avatar span {
         font-size: 18px;
     }
     
@@ -1487,7 +1712,7 @@ body {
         min-height: 40px;
     }
     
-    .chat-user-avatar i {
+    .chat-user-avatar span {
         font-size: 18px;
     }
     
@@ -1499,8 +1724,8 @@ body {
         min-height: 100px;
     }
     
-    .profile-view-avatar i,
-    .avatar-preview i {
+    .profile-view-avatar span,
+    .avatar-preview span {
         font-size: 40px;
     }
     
@@ -1617,6 +1842,30 @@ body {
     .send-btn i {
         font-size: 16px;
     }
+    
+    /* Mobile emoji and sticker */
+    .emoji-sticker-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+        flex: 1;
+        padding: 8px;
+        font-size: 13px;
+    }
+    
+    .sticker-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .sticker-item {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .emoji-mart-emoji span {
+        font-size: 20px !important;
+    }
 }
 
 /* Small phones */
@@ -1651,7 +1900,7 @@ body {
         min-height: 40px;
     }
     
-    .profile-avatar i {
+    .profile-avatar span {
         font-size: 20px;
     }
     
@@ -1662,7 +1911,7 @@ body {
         min-height: 40px;
     }
     
-    .chat-avatar i {
+    .chat-avatar span {
         font-size: 16px;
     }
     
@@ -1673,7 +1922,7 @@ body {
         min-height: 35px;
     }
     
-    .chat-user-avatar i {
+    .chat-user-avatar span {
         font-size: 16px;
     }
     
@@ -1684,6 +1933,11 @@ body {
     
     .send-btn {
         padding: 10px 16px;
+    }
+    
+    .sticker-item {
+        width: 60px;
+        height: 60px;
     }
 }
 
@@ -1709,8 +1963,8 @@ body {
         min-height: 80px;
     }
     
-    .profile-view-avatar i,
-    .avatar-preview i {
+    .profile-view-avatar span,
+    .avatar-preview span {
         font-size: 32px;
     }
     
@@ -1728,6 +1982,10 @@ body {
     
     .avatar-editor-container {
         height: 200px;
+    }
+    
+    #emoji-picker {
+        max-height: 250px;
     }
 }
 
@@ -1757,7 +2015,10 @@ body {
     .remove-avatar-btn,
     .context-menu-item,
     .zoom-btn,
-    .rotate-btn {
+    .rotate-btn,
+    .emoji-sticker-btn,
+    .tab-btn,
+    .sticker-item {
         min-height: 44px;
     }
 
@@ -1884,206 +2145,3 @@ body {
 .fas, .far, .fab {
     pointer-events: none;
 }
-
-/* Emoji and Sticker styles */
-.emoji-sticker-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 50%;
-    color: #666;
-    transition: background 0.2s;
-}
-
-.emoji-sticker-btn:hover {
-    background: #f0f0f0;
-}
-
-.emoji-sticker-tabs {
-    display: flex;
-    gap: 10px;
-}
-
-.tab-btn {
-    padding: 10px 20px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: #666;
-    transition: all 0.2s;
-}
-
-.tab-btn.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
-}
-
-.tab-btn i {
-    margin-right: 5px;
-}
-
-.tab-content {
-    display: none;
-    padding: 20px 0;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-#emoji-picker {
-    min-height: 300px;
-}
-
-/* Sticker styles */
-.sticker-packs {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.sticker-pack {
-    margin-bottom: 20px;
-}
-
-.sticker-pack h4 {
-    margin-bottom: 10px;
-    color: #333;
-    font-size: 14px;
-}
-
-.sticker-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 10px;
-}
-
-.sticker-item {
-    width: 80px;
-    height: 80px;
-    cursor: pointer;
-    border-radius: 10px;
-    overflow: hidden;
-    transition: transform 0.2s;
-    border: 2px solid transparent;
-}
-
-.sticker-item:hover {
-    transform: scale(1.1);
-    border-color: #667eea;
-}
-
-.sticker-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-/* Upload area */
-.sticker-upload {
-    text-align: center;
-}
-
-.info-text {
-    color: #999;
-    font-size: 12px;
-    margin-top: 5px;
-}
-
-.upload-area {
-    border: 2px dashed #ccc;
-    border-radius: 10px;
-    padding: 40px 20px;
-    margin: 20px 0;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.upload-area:hover {
-    border-color: #667eea;
-}
-
-.upload-area.dragover {
-    border-color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
-}
-
-.upload-icon {
-    font-size: 48px;
-    color: #ccc;
-    margin-bottom: 10px;
-}
-
-.sticker-preview {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.preview-item {
-    position: relative;
-    width: 100px;
-    height: 100px;
-}
-
-.preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.preview-item .remove-btn {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 20px;
-    height: 20px;
-    background: #f87171;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-}
-
-/* Message with sticker */
-.message.sticker {
-    background: none;
-    padding: 5px;
-}
-
-.message.sticker img {
-    max-width: 150px;
-    max-height: 150px;
-    border-radius: 10px;
-}
-
-/* Mobile styles */
-@media (max-width: 768px) {
-    .sticker-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-    
-    .sticker-item {
-        width: 70px;
-        height: 70px;
-    }
-    
-    .emoji-sticker-tabs {
-        flex-wrap: wrap;
-    }
-    
-    .tab-btn {
-        flex: 1;
-        padding: 8px;
-    }
-}
-
