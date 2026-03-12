@@ -63,14 +63,14 @@ function formatPhone(phone) {
 }
 
 function getAvatarLetter(name) {
-    if (!name) return '<i class="fas fa-user"></i>'
+    if (!name) return '<i class="fas fa-user"></i>';
     if (name.startsWith('@') && name.length > 1) {
-        return name[1].toUpperCase()
+        return name[1].toUpperCase();
     }
     if (name.length > 0) {
-        return name[0].toUpperCase()
+        return name[0].toUpperCase();
     }
-    return '<i class="fas fa-user"></i>'
+    return '<i class="fas fa-user"></i>';
 }
 
 function escapeHtml(text) {
@@ -915,11 +915,11 @@ function createChatElement(chat) {
         div.classList.add('active')
     }
     
-    let avatarHtml
+    let avatarHtml;
     if (chat.avatar) {
-        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
+        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`;
     } else {
-        avatarHtml = '<i class="fas fa-user"></i>'
+        avatarHtml = '<i class="fas fa-user"></i>';
     }
     
     const isOnline = window.clients && window.clients[chat.phone] === true
@@ -1673,6 +1673,7 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
+
 
 
 
