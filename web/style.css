@@ -2145,3 +2145,67 @@ body {
 .fas, .far, .fab {
     pointer-events: none;
 }
+
+/* Emoji modal - рядом с чатом */
+.emoji-modal {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    width: 350px;
+    max-width: 90vw;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    z-index: 1000;
+    display: none;
+    animation: slideUp 0.2s ease;
+}
+
+.emoji-modal.show {
+    display: block;
+}
+
+.emoji-modal-content {
+    width: 100%;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.emoji-modal-header {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.emoji-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+    padding: 5px 10px;
+    border-radius: 50%;
+}
+
+.emoji-close-btn:hover {
+    background: #f0f0f0;
+}
+
+.emoji-modal-body {
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Для мобильных */
+@media (max-width: 768px) {
+    .emoji-modal {
+        bottom: 70px;
+        right: 10px;
+        left: 10px;
+        width: auto;
+    }
+}
