@@ -53,6 +53,7 @@ def hash_password(password):
     return hashlib.sha256((password + salt).encode()).hexdigest()
 
 # Инициализация базы данных
+# Обновите функцию init_db для добавления колонки is_read
 async def init_db():
     conn = await get_db()
     try:
@@ -88,7 +89,6 @@ async def init_db():
             """)
             
             if not column_exists:
-                # Добавляем колонку password
                 await conn.execute("ALTER TABLE users ADD COLUMN password TEXT")
                 logger.info("Added password column to users table")
         
@@ -111,10 +111,21 @@ async def init_db():
                 receiver TEXT NOT NULL,
                 text TEXT NOT NULL,
                 is_deleted INTEGER DEFAULT 0,
-                is_read INTEGER DEFAULT 0,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Проверяем, есть ли колонка is_read
+        column_exists = await conn.fetchval("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'messages' AND column_name = 'is_read'
+            )
+        """)
+        
+        if not column_exists:
+            await conn.execute("ALTER TABLE messages ADD COLUMN is_read INTEGER DEFAULT 0")
+            logger.info("Added is_read column to messages table")
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -585,11 +596,8 @@ async def get_users(me: str):
                 ORDER BY timestamp DESC LIMIT 1
             """, me, phone)
             
-            # Количество непрочитанных
-            unread = await conn.fetchval("""
-                SELECT COUNT(*) FROM messages
-                WHERE sender = $1 AND receiver = $2 AND is_read = 0
-            """, phone, me)
+            # Количество непрочитанных (временно 0, пока не добавим is_read)
+            unread = 0
             
             display_name = user_data['name'] or user_data['username'] or phone
             
@@ -601,7 +609,7 @@ async def get_users(me: str):
                 "avatar": f"/avatars/{user_data['avatar']}" if user_data['avatar'] else None,
                 "online": phone in clients,
                 "last": last_msg['text'] if last_msg else None,
-                "unread": unread or 0
+                "unread": unread
             })
         
         await conn.close()
@@ -897,3 +905,4 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
