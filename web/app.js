@@ -383,6 +383,7 @@ function showPasswordSetupModal() {
 }
 
 // Сохранение пароля для существующего пользователя
+// Сохранение пароля для существующего пользователя
 async function savePasswordForExisting() {
     console.log('Saving password for existing user:', currentUser); // Для отладки
     
@@ -1656,4 +1657,5 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
+
 
