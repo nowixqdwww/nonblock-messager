@@ -331,97 +331,124 @@ async function login() {
 
 // Показать модальное окно создания пароля
 function showPasswordSetupModal() {
+    console.log('Opening password setup modal for user:', currentUser); // Для отладки
+    
     // Очищаем поля ввода
-    document.getElementById('newPassword').value = ''
-    document.getElementById('confirmPassword').value = ''
+    const newPasswordInput = document.getElementById('newPassword');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+    
+    if (newPasswordInput) newPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
     
     // Сбрасываем индикатор силы пароля
-    const strengthBar = document.getElementById('strengthBar')
+    const strengthBar = document.getElementById('strengthBar');
     if (strengthBar) {
-        strengthBar.className = 'strength-bar'
-        strengthBar.style.width = '0%'
+        strengthBar.className = 'strength-bar';
+        strengthBar.style.width = '0%';
     }
     
     // Сбрасываем требования
-    const reqLength = document.getElementById('reqLength')
-    const reqNumber = document.getElementById('reqNumber')
-    const reqLetter = document.getElementById('reqLetter')
+    const reqLength = document.getElementById('reqLength');
+    const reqNumber = document.getElementById('reqNumber');
+    const reqLetter = document.getElementById('reqLetter');
     
     if (reqLength) {
-        reqLength.innerHTML = '❌ Минимум 6 символов'
-        reqLength.className = 'requirement'
+        reqLength.innerHTML = '❌ Минимум 6 символов';
+        reqLength.className = 'requirement';
     }
     if (reqNumber) {
-        reqNumber.innerHTML = '❌ Хотя бы одна цифра'
-        reqNumber.className = 'requirement'
+        reqNumber.innerHTML = '❌ Хотя бы одна цифра';
+        reqNumber.className = 'requirement';
     }
     if (reqLetter) {
-        reqLetter.innerHTML = '❌ Хотя бы одна буква'
-        reqLetter.className = 'requirement'
+        reqLetter.innerHTML = '❌ Хотя бы одна буква';
+        reqLetter.className = 'requirement';
     }
     
     // Отключаем кнопку сохранения
-    const saveBtn = document.getElementById('savePasswordBtn')
+    const saveBtn = document.getElementById('savePasswordBtn');
     if (saveBtn) {
-        saveBtn.disabled = true
+        saveBtn.disabled = true;
     }
     
     // Показываем модальное окно
-    document.getElementById('passwordSetupModal').classList.add('show')
+    const modal = document.getElementById('passwordSetupModal');
+    if (modal) {
+        modal.classList.add('show');
+    } else {
+        console.error('Password setup modal not found!');
+        alert('Ошибка: модальное окно не найдено');
+    }
 }
 
 // Сохранение пароля для существующего пользователя
 async function savePasswordForExisting() {
-    const password = document.getElementById('newPassword').value
-    const confirm = document.getElementById('confirmPassword').value
+    console.log('Saving password for existing user:', currentUser); // Для отладки
+    
+    const password = document.getElementById('newPassword').value;
+    const confirm = document.getElementById('confirmPassword').value;
     
     if (!password) {
-        showToast('Введите пароль')
-        return
+        showToast('Введите пароль');
+        return;
     }
     
     if (password.length < 6) {
-        showToast('Пароль должен быть не менее 6 символов')
-        return
+        showToast('Пароль должен быть не менее 6 символов');
+        return;
     }
     
     if (password !== confirm) {
-        showToast('Пароли не совпадают')
-        return
+        showToast('Пароли не совпадают');
+        return;
+    }
+    
+    // Проверяем сложность пароля
+    const hasNumber = /\d/.test(password);
+    const hasLetter = /[a-zA-Z]/.test(password);
+    
+    if (!hasNumber || !hasLetter) {
+        showToast('Пароль должен содержать хотя бы одну цифру и одну букву');
+        return;
     }
     
     try {
+        showToast('Сохранение пароля...');
+        
         const res = await fetch('/set-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 phone: currentUser,
-                password: btoa(password)
+                password: btoa(password) // Простое base64 кодирование
             })
-        })
+        });
         
-        const data = await res.json()
+        const data = await res.json();
         
-        if (data.error) {
-            showToast(data.error)
-            return
+        if (!res.ok) {
+            showToast(data.error || 'Ошибка сохранения пароля');
+            return;
         }
         
-        showToast('Пароль сохранен')
-        closePasswordSetup()
+        showToast('Пароль сохранен');
+        closePasswordSetup();
         
         // Автоматически входим
-        completeLogin()
+        completeLogin();
         
     } catch (error) {
-        console.error('Error saving password:', error)
-        showToast('Ошибка сохранения пароля')
+        console.error('Error saving password:', error);
+        showToast('Ошибка сохранения пароля: ' + error.message);
     }
 }
 
 // Закрыть окно создания пароля
 function closePasswordSetup() {
-    document.getElementById('passwordSetupModal').classList.remove('show')
+    const modal = document.getElementById('passwordSetupModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
 }
 
 function completeLogin() {
@@ -1408,25 +1435,6 @@ function hideSearchResults() {
 
 function openSettings() {
     const modal = document.getElementById('settingsModal')
-    
-    // Добавляем кнопку смены пароля в настройки
-    const securitySection = document.querySelector('.settings-section:nth-child(2)')
-    if (!document.getElementById('changePasswordBtn')) {
-        const passwordItem = document.createElement('div')
-        passwordItem.className = 'settings-item'
-        passwordItem.id = 'changePasswordBtn'
-        passwordItem.innerHTML = `
-            <div class="settings-item-info">
-                <div class="settings-item-title">Пароль</div>
-                <div class="settings-item-description">Изменить пароль для входа</div>
-            </div>
-            <button class="settings-button" onclick="openChangePassword()">
-                <i class="fas fa-key"></i> Сменить
-            </button>
-        `
-        securitySection.insertBefore(passwordItem, securitySection.firstChild)
-    }
-    
     loadPrivacySettings()
     modal.classList.add('show')
 }
