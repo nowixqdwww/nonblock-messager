@@ -28,11 +28,11 @@ let currentAvatarFile = null
 let emojiPicker = null
 let userStickers = []
 let popularStickers = [
-    '/stickers/popular/1.png',
-    '/stickers/popular/2.png',
-    '/stickers/popular/3.png',
-    '/stickers/popular/4.png',
-    '/stickers/popular/5.png'
+    '/static/stickers/popular/1.svg',
+    '/static/stickers/popular/2.svg',
+    '/static/stickers/popular/3.svg',
+    '/static/stickers/popular/4.svg',
+    '/static/stickers/popular/5.svg'
 ]
 
 // Глобальный объект для хранения онлайн статусов
@@ -827,58 +827,36 @@ async function loadStickers() {
 async function openEmojiStickerModal() {
     console.log('Opening emoji sticker modal')
     const modal = document.getElementById('emojiStickerModal')
-    const inputArea = document.querySelector('.input-area')
+    const chatBlock = document.getElementById('chatBlock')
     
-    // Позиционируем модальное окно над полем ввода
-    if (inputArea) {
-        const rect = inputArea.getBoundingClientRect()
-        modal.style.bottom = (window.innerHeight - rect.top + 10) + 'px'
-        modal.style.right = '20px'
+    if (!modal) {
+        console.error('Modal not found')
+        return
+    }
+    
+    // Проверяем, не открыто ли уже окно
+    if (modal.classList.contains('show')) {
+        closeEmojiStickerModal()
+        return
+    }
+    
+    // Добавляем класс для сдвига чата
+    if (chatBlock && window.innerWidth > 768) {
+        chatBlock.classList.add('emoji-open')
     }
     
     // Проверяем, загружена ли библиотека
     if (typeof EmojiMart === 'undefined') {
-        console.log('EmojiMart not loaded, loading...')
-        showToast('Загрузка эмодзи...')
-        
-        // Загружаем CSS (если еще не загружен)
-        if (!document.querySelector('link[href*="emoji-mart.css"]')) {
-            const link = document.createElement('link')
-            link.rel = 'stylesheet'
-            link.href = 'https://cdn.jsdelivr.net/npm/emoji-mart@3.0.1/css/emoji-mart.css'
-            document.head.appendChild(link)
-        }
-        
-        // Загружаем JS
-        const script = document.createElement('script')
-        script.src = 'https://cdn.jsdelivr.net/npm/emoji-mart@3.0.1/dist/emoji-mart.js'
-        
-        script.onload = () => {
-            console.log('EmojiMart loaded successfully!')
-            showToast('Эмодзи загружены')
-            
-            setTimeout(() => {
-                createEmojiMartPicker()
-                loadStickers()
-                modal.classList.add('show')
-            }, 100)
-        }
-        
-        script.onerror = () => {
-            console.error('Failed to load EmojiMart')
-            showToast('Не удалось загрузить эмодзи, используем простой набор')
-            createSimpleEmojiPicker()
-            loadStickers()
-            modal.classList.add('show')
-        }
-        
-        document.body.appendChild(script)
+        console.error('EmojiMart not loaded, using simple picker')
+        showToast('Используем простой набор эмодзи')
+        createSimpleEmojiPicker()
     } else {
-        // Библиотека уже загружена
+        // Библиотека загружена
         createEmojiMartPicker()
-        loadStickers()
-        modal.classList.add('show')
     }
+    
+    loadStickers()
+    modal.classList.add('show')
 }
 
 // Создать EmojiMart picker для версии 3.0.1
@@ -890,10 +868,6 @@ function createEmojiMartPicker() {
     
     try {
         console.log('Creating EmojiMart picker (v3.0.1)...')
-        
-        if (typeof EmojiMart === 'undefined') {
-            throw new Error('EmojiMart not available')
-        }
         
         const picker = new EmojiMart.Picker({
             onSelect: (emoji) => {
@@ -944,16 +918,25 @@ function createSimpleEmojiPicker() {
         '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱',
         '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫',
         '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦',
-        '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵'
+        '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵',
+        '🙈', '🙉', '🙊', '🐵', '🐶', '🐱', '🦊', '🐼',
+        '🐨', '🦁', '🐮', '🐷', '🐸', '🐙', '🦄', '🐧',
+        '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇',
+        '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌'
     ]
     
     simpleEmojis.forEach(emoji => {
         const span = document.createElement('span')
         span.className = 'simple-emoji'
         span.textContent = emoji
-        span.onclick = () => insertEmoji(emoji)
+        span.onclick = (e) => {
+            e.stopPropagation()
+            insertEmoji(emoji)
+        }
         container.appendChild(span)
     })
+    
+    console.log('Simple emoji picker created with', simpleEmojis.length, 'emojis')
 }
 
 function insertEmoji(emoji) {
@@ -1020,7 +1003,17 @@ function addStickerMessage(user, stickerUrl) {
 }
 
 function closeEmojiStickerModal() {
-    document.getElementById('emojiStickerModal').classList.remove('show')
+    console.log('Closing emoji sticker modal')
+    const modal = document.getElementById('emojiStickerModal')
+    const chatBlock = document.getElementById('chatBlock')
+    
+    if (modal) {
+        modal.classList.remove('show')
+    }
+    
+    if (chatBlock) {
+        chatBlock.classList.remove('emoji-open')
+    }
 }
 
 function switchTab(tab) {
