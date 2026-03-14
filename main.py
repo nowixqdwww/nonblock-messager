@@ -493,15 +493,47 @@ async def get_stickers(phone: str):
         conn = await get_db()
         
         stickers = await conn.fetch("""
-            SELECT sticker_url FROM stickers WHERE user_phone = $1
+            SELECT id, sticker_url FROM stickers WHERE user_phone = $1 ORDER BY created_at DESC
         """, phone)
         
         await conn.close()
         
-        return {"stickers": [s['sticker_url'] for s in stickers]}
+        return {"stickers": [{"id": s['id'], "url": s['sticker_url']} for s in stickers]}
         
     except Exception as e:
         logger.error(f"Error getting stickers: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.delete("/stickers/{phone}/{sticker_id}")
+async def delete_sticker(phone: str, sticker_id: int):
+    try:
+        conn = await get_db()
+        
+        sticker = await conn.fetchrow(
+            "SELECT sticker_url, user_phone FROM stickers WHERE id = $1",
+            sticker_id
+        )
+        
+        if not sticker:
+            await conn.close()
+            return JSONResponse(status_code=404, content={"error": "Стикер не найден"})
+        
+        if sticker['user_phone'] != phone:
+            await conn.close()
+            return JSONResponse(status_code=403, content={"error": "Нет доступа"})
+        
+        # Удаляем файл
+        sticker_path = os.path.join(STICKER_DIR, os.path.basename(sticker['sticker_url']))
+        if os.path.exists(sticker_path):
+            os.remove(sticker_path)
+        
+        await conn.execute("DELETE FROM stickers WHERE id = $1", sticker_id)
+        await conn.close()
+        
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error deleting sticker: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ПОИСК =============
@@ -944,4 +976,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
