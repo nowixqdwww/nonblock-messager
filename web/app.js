@@ -37,46 +37,156 @@ let popularStickers = [
 // Глобальный объект для хранения онлайн статусов
 window.clients = {}
 
-// Хранилище времени последнего визита
+// last_seen и переменные пересылки
 const lastSeenMap = {}
-
-// Форматирование времени последнего визита
-function formatLastSeen(isoString) {
-    if (!isoString) return 'был(а) давно'
-    const now = new Date()
-    const date = new Date(isoString)
-    const diffMs = now - date
-    const diffSec = Math.floor(diffMs / 1000)
-    const diffMin = Math.floor(diffSec / 60)
-    const diffHour = Math.floor(diffMin / 60)
-    const diffDay = Math.floor(diffHour / 24)
-
-    if (diffSec < 60)  return 'был(а) только что'
-    if (diffMin < 60)  return `был(а) ${diffMin} ${pluralize(diffMin, 'минуту', 'минуты', 'минут')} назад`
-    if (diffHour < 24) {
-        const t = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        return `был(а) сегодня в ${t}`
-    }
-    if (diffDay === 1) {
-        const t = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        return `был(а) вчера в ${t}`
-    }
-    if (diffDay < 7)   return `был(а) ${diffDay} ${pluralize(diffDay, 'день', 'дня', 'дней')} назад`
-    return `был(а) ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
-}
-
-function pluralize(n, one, few, many) {
-    const mod10 = n % 10, mod100 = n % 100
-    if (mod10 === 1 && mod100 !== 11) return one
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few
-    return many
-}
+let selectedMessageText = null
+let selectedMessageSender = null
 
 // Хранилище чатов и непрочитанных сообщений
 let chatsCache = {}
 let unreadCounts = {}
 
 // ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
+
+// ── Last seen ──────────────────────────────────────────────
+function pluralize(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100
+    if (m10 === 1 && m100 !== 11) return one
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few
+    return many
+}
+function formatLastSeen(iso) {
+    if (!iso) return 'был(а) давно'
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
+    const min  = Math.floor(diff / 60)
+    const hour = Math.floor(min  / 60)
+    const day  = Math.floor(hour / 24)
+    const d    = new Date(iso)
+    const t    = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    if (diff < 60)  return 'был(а) только что'
+    if (min  < 60)  return `был(а) ${min} ${pluralize(min, 'минуту', 'минуты', 'минут')} назад`
+    if (hour < 24)  return `был(а) сегодня в ${t}`
+    if (day  === 1) return `был(а) вчера в ${t}`
+    if (day  < 7)   return `был(а) ${day} ${pluralize(day, 'день', 'дня', 'дней')} назад`
+    return `был(а) ${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
+}
+function updateChatStatusText(phone, isOnline) {
+    const el = document.getElementById('chatUserStatus')
+    if (!el) return
+    if (isOnline) {
+        el.textContent = 'онлайн'
+        el.className = 'chat-user-status'
+    } else {
+        el.textContent = lastSeenMap[phone] ? formatLastSeen(lastSeenMap[phone]) : 'оффлайн'
+        el.className = 'chat-user-status offline'
+    }
+}
+
+// ── Emoji utils ────────────────────────────────────────────
+function splitEmoji(str) {
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        return [...new Intl.Segmenter().segment(str)].map(s => s.segment)
+    }
+    return [...str]
+}
+const EMOJI_CATEGORIES = [
+    { id:'smileys',    icon:'😀', label:'Смайлы',
+      emojis: splitEmoji('😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹️😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠️💩🤡👹👺👻👽👾🤖') },
+    { id:'gestures',   icon:'👋', label:'Жесты',
+      emojis: splitEmoji('👋🤚🖐✋🖖👌🤌🤏✌️🤞🤟🤘🤙👈👉👆🖕👇☝️👍👎✊👊🤛🤜👏🙌🫶👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠👀👁👅👄💋') },
+    { id:'people',     icon:'👤', label:'Люди',
+      emojis: splitEmoji('👶🧒👦👧🧑👱👨🧔👩🧓👴👵🙍🙎🙅🙆💁🙋🧏🙇🤦🤷👮🕵️💂🥷👷🤴👸👲🧕🤵👰🤰🤱👼🎅🤶🦸🦹🧙🧚🧛🧜🧝🧞🧟🧌💆💇🚶🧍🧎🏃💃🕺👯🧖🧗🧘🛀🛌👫👬👭💏💑👪') },
+    { id:'nature',     icon:'🌿', label:'Природа',
+      emojis: splitEmoji('🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🙈🙉🙊🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦟🦗🕷🦂🐢🐍🦎🐙🦑🦐🦀🐡🐠🐟🐬🐳🦈🐊🐅🐆🦓🦍🐘🦛🦏🐪🦒🦘🦬🌸🌺🌻🌹🌷🌼🌱🌿☘️🍀🍃🍂🍁🍄🌾💐🌵🌴🌳🌲🌙⭐🌟💫✨☀️⛅🌧️🌨️❄️🌊🌈') },
+    { id:'food',       icon:'🍕', label:'Еда',
+      emojis: splitEmoji('🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶️🧄🧅🥔🍠🥜🍞🥐🥖🧀🥚🍳🧈🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🌮🌯🍜🍝🍛🍲🍣🍱🥟🍤🍙🍚🍘🍥🥮🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪☕🍵🍺🍻🥂🍷🥃🍸🍹🧃🥤🧋🍾') },
+    { id:'activities', icon:'⚽', label:'Активности',
+      emojis: splitEmoji('⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🏓🏸🏒⛳🎣🤿🎽🎿🛷🎯🎲🎮🕹️🎰🧩♟️🎭🎨🎪🎢🎡🎠🚀🎆🎇🧨🎉🎊🎈🎁🎀🏆🥇🥈🥉🎤🎧🎼🎵🎶🥁🎷🎺🎸🎻') },
+    { id:'symbols',    icon:'❤️', label:'Символы',
+      emojis: splitEmoji('❤️🧡💛💚💙💜🖤🤍🤎💔💕💞💓💗💖💘💝💟☮️✝️☪️🕉️☯️🛐💯🔥⭐✨💫⚡🌈💎👑🎯🔑🔒🔓💡🔍🔎📌📍🌍🌎🌏🚩🎌🏁❌✅⚠️🚫🔞🔄🔃🔝🔛🔜🔚🔙') }
+]
+const EMOJI_NAMES = {
+    '😀':'радость','😂':'смех','😭':'плачет','😍':'влюблён','😎':'круто','😊':'улыбка',
+    '😢':'грустно','😡':'злость','🥰':'любовь','🤔':'думает','👍':'лайк','👎':'дизлайк',
+    '❤️':'сердце','🔥':'огонь','💯':'сто','🎉':'праздник','🙏':'спасибо','💪':'сила',
+    '😴':'сон','🤣':'хохот','😇':'ангел','🥺':'умоляет','😏':'ухмылка','👋':'привет',
+    '✌️':'мир','🤞':'удача','👏':'аплодисменты','🐶':'собака','🐱':'кошка','🦊':'лиса',
+    '🍕':'пицца','🍔':'бургер','🍟':'картошка','🍣':'суши','🍜':'лапша',
+    '⚽':'футбол','🏀':'баскетбол','🎮':'игры','🎵':'музыка','🎨':'рисование',
+}
+let currentEmojiCategory = 'smileys'
+let emojiSearchTimeout = null
+
+function renderEmojiPicker() {
+    const catBar = document.getElementById('emojiCategoryBar')
+    if (!catBar) return
+    if (catBar.children.length === 0) {
+        const searchEl = document.getElementById('emojiSearch')
+        if (searchEl && !searchEl._el) {
+            searchEl._el = true
+            searchEl.addEventListener('input', function() {
+                clearTimeout(emojiSearchTimeout)
+                emojiSearchTimeout = setTimeout(() => renderEmojiGrid(this.value.trim()), 200)
+            })
+        }
+        EMOJI_CATEGORIES.forEach(cat => {
+            const btn = document.createElement('button')
+            btn.className = 'emoji-cat-btn' + (cat.id === currentEmojiCategory ? ' active' : '')
+            btn.textContent = cat.icon
+            btn.title = cat.label
+            btn.onclick = () => {
+                currentEmojiCategory = cat.id
+                const s = document.getElementById('emojiSearch')
+                if (s) s.value = ''
+                renderEmojiGrid()
+                catBar.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'))
+                btn.classList.add('active')
+            }
+            catBar.appendChild(btn)
+        })
+    }
+    renderEmojiGrid()
+}
+function renderEmojiGrid(filter) {
+    const grid  = document.getElementById('emojiGrid')
+    const label = document.getElementById('emojiCategoryLabel')
+    if (!grid) return
+    let emojis
+    if (filter && filter.length) {
+        const q = filter.toLowerCase()
+        const all = EMOJI_CATEGORIES.flatMap(c => c.emojis)
+        emojis = all.filter(e => (EMOJI_NAMES[e] || '').includes(q))
+        if (!emojis.length) {
+            const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCategory)
+            emojis = cat ? cat.emojis : []
+        }
+        if (label) label.textContent = emojis.length ? 'Найдено: ' + emojis.length : 'Ничего не найдено'
+    } else {
+        const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCategory)
+        emojis = cat ? cat.emojis : []
+        if (label) label.textContent = cat ? cat.label : ''
+    }
+    grid.innerHTML = ''
+    const frag = document.createDocumentFragment()
+    emojis.forEach(emoji => {
+        const btn = document.createElement('button')
+        btn.className = 'emoji-item'
+        btn.textContent = emoji
+        btn.addEventListener('click', () => insertEmoji(emoji))
+        frag.appendChild(btn)
+    })
+    grid.appendChild(frag)
+}
+function insertEmoji(emoji) {
+    const input = document.getElementById('text')
+    if (!input) return
+    const s = input.selectionStart ?? input.value.length
+    const e = input.selectionEnd   ?? input.value.length
+    input.value = input.value.slice(0, s) + emoji + input.value.slice(e)
+    try { input.setSelectionRange(s + [...emoji].length, s + [...emoji].length) } catch(_) {}
+    input.focus()
+    if (navigator.vibrate) navigator.vibrate(10)
+}
 
 function cleanPhone(phone) {
     if (!phone) return ''
@@ -154,23 +264,10 @@ function updateOnlineStatus() {
             statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
         }
     })
-
+    
     if (currentChat) {
         const isOnline = window.clients && window.clients[currentChat] === true
         updateChatStatusText(currentChat, isOnline)
-    }
-}
-
-function updateChatStatusText(phone, isOnline) {
-    const el = document.getElementById('chatUserStatus')
-    if (!el) return
-    if (isOnline) {
-        el.textContent = 'онлайн'
-        el.className = 'chat-user-status'
-    } else {
-        const ls = lastSeenMap[phone]
-        el.textContent = ls ? formatLastSeen(ls) : 'оффлайн'
-        el.className = 'chat-user-status offline'
     }
 }
 
@@ -884,30 +981,25 @@ function toggleStickerModal() {
 
 // Открыть модальное окно стикеров
 function openStickerModal() {
-    console.log('Opening sticker modal')
     const modal = document.getElementById('stickerModal')
     const btn = document.getElementById('stickerBtn')
-    const inputArea = document.querySelector('.input-area')
-    
-    if (!modal) {
-        console.error('Modal not found')
-        return
-    }
-    
-    // Загружаем свежие стикеры
+    if (!modal) return
     loadStickers()
-    
-    // Позиционируем модальное окно над кнопкой
-    if (btn && inputArea) {
-        const btnRect = btn.getBoundingClientRect()
-        const inputRect = inputArea.getBoundingClientRect()
-        
-        modal.style.bottom = (window.innerHeight - inputRect.top + 10) + 'px'
-        modal.style.right = (window.innerWidth - btnRect.right + 10) + 'px'
+    const inputArea = document.querySelector('.input-area')
+    if (inputArea && btn) {
+        const ir = inputArea.getBoundingClientRect()
+        const br = btn.getBoundingClientRect()
+        modal.style.bottom = (window.innerHeight - ir.top + 8) + 'px'
+        if (window.innerWidth <= 768) {
+            modal.style.right = '8px'; modal.style.left = '8px'
+        } else {
+            modal.style.right = Math.max(8, window.innerWidth - br.right - 8) + 'px'
+            modal.style.left = ''
+        }
     }
-    
     modal.classList.add('show')
-    btn.classList.add('active')
+    if (btn) btn.classList.add('active')
+    requestAnimationFrame(() => requestAnimationFrame(() => renderEmojiPicker()))
 }
 
 // Закрыть модальное окно стикеров
@@ -927,19 +1019,14 @@ function closeStickerModal() {
 
 // Переключение вкладок стикеров
 function switchStickerTab(tab) {
-    document.querySelectorAll('.sticker-tab-btn').forEach(btn => btn.classList.remove('active'))
-    document.querySelectorAll('.sticker-tab-content').forEach(content => content.classList.remove('active'))
-    
-    if (tab === 'my') {
-        document.getElementById('tabMyBtn').classList.add('active')
-        document.getElementById('myStickersTab').classList.add('active')
-    } else if (tab === 'popular') {
-        document.getElementById('tabPopularBtn').classList.add('active')
-        document.getElementById('popularStickersTab').classList.add('active')
-    } else if (tab === 'upload') {
-        document.getElementById('tabUploadBtn').classList.add('active')
-        document.getElementById('uploadStickersTab').classList.add('active')
-    }
+    document.querySelectorAll('.sticker-tab-btn').forEach(b => b.classList.remove('active'))
+    document.querySelectorAll('.sticker-tab-content').forEach(c => c.classList.remove('active'))
+    const map = { emoji:['tabEmojiBtn','emojiTab'], my:['tabMyBtn','myStickersTab'],
+                  popular:['tabPopularBtn','popularStickersTab'], upload:['tabUploadBtn','uploadStickersTab'] }
+    const t = map[tab]; if (!t) return
+    document.getElementById(t[0])?.classList.add('active')
+    document.getElementById(t[1])?.classList.add('active')
+    if (tab === 'emoji') requestAnimationFrame(() => renderEmojiPicker())
 }
 
 // Отображение стикеров
@@ -1022,43 +1109,56 @@ function addStickerMessage(user, stickerUrl) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
-// Обновленная функция addMessage для поддержки стикеров
-function addMessage(user, text, messageId = null) {
+function addMessage(user, text, messageId = null, isRead = false) {
     const messagesDiv = document.getElementById('messages')
     const div = document.createElement('div')
-    
+    const isMe = user === currentUser
+
     const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
-    
+
     if (stickerMatch) {
-        div.className = 'message sticker ' + (user === currentUser ? 'me' : 'other')
+        div.className = 'message sticker ' + (isMe ? 'me' : 'other')
         const img = document.createElement('img')
         img.src = stickerMatch[1]
         img.alt = 'sticker'
         div.appendChild(img)
     } else {
-        div.className = 'message ' + (user === currentUser ? 'me' : 'other')
-        
-        if (messageId) {
-            div.dataset.messageId = messageId
-        }
-        
+        div.className = 'message ' + (isMe ? 'me' : 'other')
+        if (messageId) div.dataset.messageId = messageId
+
         const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        
-        div.innerHTML = `
-            <div class="message-text">${escapeHtml(text)}</div>
-            <div class="message-time">${time}</div>
-        `
+        const ticks = isMe
+            ? `<span class="msg-ticks${isRead ? ' read' : ''}"><i class="fas fa-check"></i><i class="fas fa-check tick-second"></i></span>`
+            : ''
+
+        // Пересланное сообщение
+        const fwdMatch = text.match(/^\[FWD:(.+?)\]([\s\S]*?)\[\/FWD\]$/)
+        let bodyHtml
+        if (fwdMatch) {
+            bodyHtml = `<div class="fwd-header"><i class="fas fa-share"></i> Переслано от <b>${escapeHtml(fwdMatch[1])}</b></div>
+                        <div class="message-text">${escapeHtml(fwdMatch[2])}</div>`
+        } else {
+            bodyHtml = `<div class="message-text">${escapeHtml(text)}</div>`
+        }
+
+        div.innerHTML = `${bodyHtml}
+            <div class="message-meta">
+                <span class="message-time">${time}</span>${ticks}
+            </div>
+            <button class="add-reaction-btn" onclick="showReactionsPanel(event,${messageId})">😊</button>`
     }
-    
-    if (user === currentUser && messageId && !stickerMatch) {
+
+    if (isMe && messageId && !stickerMatch) {
         div.addEventListener('contextmenu', (e) => {
             e.preventDefault()
-            showContextMenu(e, 'message', { messageId, element: div })
+            const msgText = div.querySelector('.message-text')?.innerText || ''
+            showContextMenu(e, 'message', { messageId, element: div, text: msgText, sender: user })
         })
     }
-    
+
     messagesDiv.appendChild(div)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
+    if (messageId) loadMessageReactions(messageId)
 }
 
 // Обработка загрузки стикеров
@@ -1247,47 +1347,7 @@ function updateMessageReactions(messageId, reactions) {
     messageElement.appendChild(reactionsDiv)
 }
 
-// Обновленная функция addMessage для поддержки реакций
-function addMessage(user, text, messageId = null) {
-    const messagesDiv = document.getElementById('messages')
-    const div = document.createElement('div')
-    
-    const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
-    
-    if (stickerMatch) {
-        div.className = 'message sticker ' + (user === currentUser ? 'me' : 'other')
-        div.innerHTML = `<img src="${stickerMatch[1]}" alt="sticker">`
-    } else {
-        div.className = 'message ' + (user === currentUser ? 'me' : 'other')
-        
-        if (messageId) {
-            div.dataset.messageId = messageId
-        }
-        
-        const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        
-        div.innerHTML = `
-            <div class="message-text">${escapeHtml(text)}</div>
-            <div class="message-time">${time}</div>
-            <button class="add-reaction-btn" onclick="showReactionsPanel(event, ${messageId})">😊</button>
-        `
-    }
-    
-    if (user === currentUser && messageId && !stickerMatch) {
-        div.addEventListener('contextmenu', (e) => {
-            e.preventDefault()
-            showContextMenu(e, 'message', { messageId, element: div })
-        })
-    }
-    
-    messagesDiv.appendChild(div)
-    messagesDiv.scrollTop = messagesDiv.scrollHeight
-    
-    // Загружаем реакции для сообщения
-    if (messageId) {
-        loadMessageReactions(messageId)
-    }
-}
+// addMessage defined above
 
 // Загрузить реакции для сообщения
 async function loadMessageReactions(messageId) {
@@ -1438,15 +1498,14 @@ function openChat(phone, displayName) {
             const name = user.name || user.username || phone
             document.getElementById('chatUserName').innerText = name
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
-
+            
             const chatAvatar = document.getElementById('chatAvatarText')
             if (user.avatar) {
                 chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
             } else {
                 chatAvatar.innerText = '?'
             }
-
-            // Сохраняем last_seen и обновляем статус
+            
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             const isOnline = window.clients && window.clients[phone] === true
             updateChatStatusText(phone, isOnline)
@@ -1477,15 +1536,12 @@ function openChat(phone, displayName) {
 }
 
 function loadMessages() {
-    if (!currentChat || !ws || ws.readyState !== WebSocket.OPEN) {
-        showToast('Нет соединения с сервером')
+    if (!currentChat) return
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setTimeout(loadMessages, 300)
         return
     }
-
-    ws.send(JSON.stringify({
-        action: 'history',
-        user: currentChat
-    }))
+    ws.send(JSON.stringify({ action: 'history', user: currentChat }))
 }
 
 function send() {
@@ -1527,6 +1583,8 @@ function showContextMenu(event, type, data) {
         menuId = 'messageContextMenu'
         selectedMessageId = data.messageId
         selectedMessageElement = data.element
+        selectedMessageText = data.text || ''
+        selectedMessageSender = data.sender || currentUser
     } else {
         menuId = 'chatContextMenu'
         selectedChatPhone = data.phone
@@ -1564,66 +1622,113 @@ function hideContextMenus() {
     document.getElementById('chatContextMenu').style.display = 'none'
     selectedMessageId = null
     selectedMessageElement = null
+    selectedMessageText = null
+    selectedMessageSender = null
     selectedChatPhone = null
     selectedChatElement = null
 }
 
 async function deleteMessage() {
-    if (!selectedMessageId || !currentChat) return
-    
-    try {
-        const res = await fetch(`/message/${selectedMessageId}?user=${currentUser}`, {
-            method: 'DELETE'
-        })
-        
-        if (res.ok && selectedMessageElement) {
-            selectedMessageElement.remove()
-            showToast('Сообщение удалено')
-        }
-        
-    } catch (error) {
-        console.error('Error deleting message:', error)
-        showToast('Ошибка при удалении')
-    }
-    
+    if (!selectedMessageId || !selectedMessageElement) return
+    const el = selectedMessageElement
+    const id = selectedMessageId
     hideContextMenus()
+    el.style.transition = 'transform 0.2s,opacity 0.2s'
+    el.style.transform = 'scale(0.85)'; el.style.opacity = '0'
+    setTimeout(() => el.remove(), 200)
+    try {
+        const res = await fetch(`/message/${id}?user=${encodeURIComponent(currentUser)}`, { method: 'DELETE' })
+        if (!res.ok) {
+            el.style.transform = ''; el.style.opacity = ''
+            if (!el.parentElement) document.getElementById('messages')?.appendChild(el)
+            const d = await res.json(); showToast(d.error || 'Ошибка при удалении')
+        }
+    } catch { showToast('Нет соединения') }
 }
 
 async function deleteChat() {
     if (!selectedChatPhone) return
-    
-    if (!confirm('Удалить этот чат?')) return
-    
-    try {
-        const res = await fetch(`/chat/${currentUser}/${selectedChatPhone}`, {
-            method: 'DELETE'
-        })
-        
-        if (res.ok) {
-            const element = document.getElementById(`chat-${cleanPhone(selectedChatPhone)}`)
-            if (element) element.remove()
-            
-            if (currentChat === selectedChatPhone) {
-                currentChat = null
-                document.getElementById('emptyChat').style.display = 'flex'
-                document.getElementById('chatBlock').style.display = 'none'
-            }
-            
-            showToast('Чат удален')
-        }
-        
-    } catch (error) {
-        console.error('Error deleting chat:', error)
-        showToast('Ошибка при удалении')
-    }
-    
+    const phone = selectedChatPhone
+    const el = document.getElementById(`chat-${cleanPhone(phone)}`)
+    const wasOpen = currentChat === phone
     hideContextMenus()
+    if (el) {
+        el.style.transition = 'opacity 0.2s,transform 0.2s'
+        el.style.opacity = '0'; el.style.transform = 'translateX(-20px)'
+        setTimeout(() => el.remove(), 200)
+    }
+    if (wasOpen) {
+        currentChat = null
+        document.getElementById('messages').innerHTML = ''
+        document.getElementById('emptyChat').style.display = 'flex'
+        document.getElementById('chatBlock').style.display = 'none'
+        if (window.innerWidth <= 768) document.getElementById('sidebar')?.classList.add('open')
+    }
+    fetch(`/chat/${encodeURIComponent(currentUser)}/${encodeURIComponent(phone)}`, { method: 'DELETE' })
+        .catch(() => showToast('Ошибка при удалении'))
 }
 
 function muteChat() {
     if (!selectedChatPhone) return
     showToast('Чат заглушен')
     hideContextMenus()
+}
+
+function clearChat() {
+    if (!selectedChatPhone) return
+    const phone = selectedChatPhone
+    hideContextMenus()
+    fetch('/chat/' + encodeURIComponent(currentUser) + '/' + encodeURIComponent(phone), { method: 'DELETE' })
+        .then(() => { if (currentChat === phone) document.getElementById('messages').innerHTML = ''; showToast('История очищена') })
+        .catch(() => showToast('Ошибка при очистке'))
+}
+
+// ============= ПЕРЕСЫЛКА =============
+
+function forwardMessage() {
+    if (!selectedMessageText) return
+    const text = selectedMessageText, sender = selectedMessageSender
+    hideContextMenus()
+    const modal = document.getElementById('forwardModal')
+    const list  = document.getElementById('forwardChatList')
+    if (!modal || !list) return
+    const prev = document.getElementById('forwardPreviewText')
+    if (prev) prev.textContent = text.length > 80 ? text.slice(0,80)+'…' : text
+    list.innerHTML = ''
+    document.querySelectorAll('.chatItem').forEach(item => {
+        const phone = item.id.replace('chat-','')
+        if (!phone) return
+        const name = item.querySelector('.chat-name')?.textContent || phone
+        const div = document.createElement('div')
+        div.className = 'forward-chat-item'
+        const av = document.createElement('div')
+        av.className = 'forward-chat-avatar'
+        const img = item.querySelector('.chat-avatar img')
+        if (img) { const i=document.createElement('img'); i.src=img.src; av.appendChild(i) }
+        else av.textContent = name[0]?.toUpperCase() || '?'
+        const nd = document.createElement('div')
+        nd.className = 'forward-chat-name'; nd.textContent = name
+        div.appendChild(av); div.appendChild(nd)
+        div.onclick = () => sendForwarded(phone, text, sender)
+        list.appendChild(div)
+    })
+    modal.classList.add('show')
+}
+
+function closeForwardModal() {
+    document.getElementById('forwardModal')?.classList.remove('show')
+}
+
+function sendForwarded(toPhone, text, originalSender) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения'); return }
+    const senderName = originalSender === currentUser
+        ? (currentUserProfile?.name || currentUserProfile?.username || currentUser)
+        : originalSender
+    const fwdText = `[FWD:${senderName}]${text}[/FWD]`
+    ws.send(JSON.stringify({ action: 'send', to: toPhone, text: fwdText }))
+    if (toPhone === currentChat) addMessage(currentUser, fwdText, null, false)
+    else showToast('Сообщение переслано')
+    closeForwardModal()
 }
 
 // ============= WEBSOCKET =============
@@ -1662,33 +1767,44 @@ function connect() {
                 if (data.from) {
                     if (!window.clients) window.clients = {}
                     window.clients[data.from] = data.online
-
                     const contactId = `chat-${cleanPhone(data.from)}`
-                    const chatElement = document.getElementById(contactId)
-                    if (chatElement) {
-                        const statusDot = chatElement.querySelector('.chat-status')
-                        if (statusDot) {
-                            statusDot.className = `chat-status ${data.online ? '' : 'offline'}`
-                        }
+                    const chatEl = document.getElementById(contactId)
+                    if (chatEl) {
+                        const dot = chatEl.querySelector('.chat-status')
+                        if (dot) dot.className = `chat-status ${data.online ? '' : 'offline'}`
                     }
-
-                    if (currentChat === data.from) {
-                        updateChatStatusText(data.from, data.online)
-                    }
+                    if (currentChat === data.from) updateChatStatusText(data.from, data.online)
                 }
             }
 
             if (data.action === 'last_seen') {
                 if (data.from && data.last_seen) {
                     lastSeenMap[data.from] = data.last_seen
-                    if (currentChat === data.from) {
-                        updateChatStatusText(data.from, false)
-                    }
+                    if (currentChat === data.from) updateChatStatusText(data.from, false)
+                }
+            }
+
+            if (data.action === 'messages_read') {
+                if (data.ids) data.ids.forEach(id => {
+                    const el = document.querySelector(`[data-message-id="${id}"]`)
+                    if (el) { const t = el.querySelector('.msg-ticks'); if (t) t.classList.add('read') }
+                })
+            }
+
+            if (data.action === 'message_deleted') {
+                const el = document.querySelector(`[data-message-id="${data.id}"]`)
+                if (el) {
+                    el.style.transition = 'transform 0.2s,opacity 0.2s'
+                    el.style.transform = 'scale(0.85)'; el.style.opacity = '0'
+                    setTimeout(() => el.remove(), 200)
                 }
             }
 
             if (data.action === 'message') {
-                addMessage(data.from, data.text, data.id)
+                addMessage(data.from, data.text, data.id, false)
+                if (currentChat === data.from && ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'read', from: data.from, id: data.id }))
+                }
                 
                 const cleanFrom = cleanPhone(data.from)
                 const existingChat = document.getElementById(`chat-${cleanFrom}`)
@@ -1712,14 +1828,12 @@ function connect() {
             }
 
             if (data.action === 'message_sent') {
-                addMessage(currentUser, data.text, data.id)
+                addMessage(currentUser, data.text, data.id, false)
             }
 
             if (data.action === 'history') {
                 document.getElementById('messages').innerHTML = ''
-                data.messages.forEach(m => {
-                    addMessage(m[1], m[2], m[0])
-                })
+                data.messages.forEach(m => addMessage(m[1], m[2], m[0], m[3] === 1))
             }
 
             if (data.action === 'typing') {
@@ -1728,8 +1842,7 @@ function connect() {
                     clearTimeout(window.typingStatusTimeout)
                     window.typingStatusTimeout = setTimeout(() => {
                         if (currentChat === data.from) {
-                            const isOnline = window.clients && window.clients[data.from]
-                            updateChatStatusText(data.from, isOnline)
+                            updateChatStatusText(data.from, window.clients && window.clients[data.from])
                         }
                     }, 3000)
                 }
@@ -2089,11 +2202,8 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000)
-// Каждую минуту обновляем relative time (X минут назад → X+1 минут назад)
 setInterval(() => {
-    if (currentChat && window.clients && !window.clients[currentChat]) {
-        updateChatStatusText(currentChat, false)
-    }
+    if (currentChat && window.clients && !window.clients[currentChat]) updateChatStatusText(currentChat, false)
 }, 60000)
 
 // Глобальные функции для HTML
@@ -2136,6 +2246,10 @@ window.closeStickerModal = closeStickerModal
 window.switchStickerTab = switchStickerTab
 window.sendSticker = sendSticker
 window.uploadStickers = uploadStickers
-// Глобальные функции для HTML
+window.insertEmoji = insertEmoji
+window.renderEmojiGrid = renderEmojiGrid
+window.forwardMessage = forwardMessage
+window.closeForwardModal = closeForwardModal
+window.clearChat = clearChat
 window.showReactionsPanel = showReactionsPanel
 window.addReaction = addReaction
