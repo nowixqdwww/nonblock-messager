@@ -975,45 +975,6 @@ function addStickerMessage(user, stickerUrl) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
-// Обновленная функция addMessage для поддержки стикеров
-function addMessage(user, text, messageId = null) {
-    const messagesDiv = document.getElementById('messages')
-    const div = document.createElement('div')
-    
-    const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
-    
-    if (stickerMatch) {
-        div.className = 'message sticker ' + (user === currentUser ? 'me' : 'other')
-        const img = document.createElement('img')
-        img.src = stickerMatch[1]
-        img.alt = 'sticker'
-        div.appendChild(img)
-    } else {
-        div.className = 'message ' + (user === currentUser ? 'me' : 'other')
-        
-        if (messageId) {
-            div.dataset.messageId = messageId
-        }
-        
-        const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        
-        div.innerHTML = `
-            <div class="message-text">${escapeHtml(text)}</div>
-            <div class="message-time">${time}</div>
-        `
-    }
-    
-    if (user === currentUser && messageId && !stickerMatch) {
-        div.addEventListener('contextmenu', (e) => {
-            e.preventDefault()
-            showContextMenu(e, 'message', { messageId, element: div })
-        })
-    }
-    
-    messagesDiv.appendChild(div)
-    messagesDiv.scrollTop = messagesDiv.scrollHeight
-}
-
 // Обработка загрузки стикеров
 document.getElementById('stickerFiles')?.addEventListener('change', handleStickerFiles)
 
