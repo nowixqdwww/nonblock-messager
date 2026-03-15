@@ -726,25 +726,16 @@ async def delete_message(message_id: int, user: str):
     try:
         conn = await get_db()
         
-        row = await conn.fetchrow(
-            "SELECT sender, receiver FROM messages WHERE id = $1",
+        sender = await conn.fetchval(
+            "SELECT sender FROM messages WHERE id = $1",
             message_id
         )
         
-        if not row:
+        if not sender:
             await conn.close()
             return JSONResponse(status_code=404, content={"error": "Message not found"})
         
-        # Normalize phones for comparison (strip spaces, ensure + prefix)
-        def norm(p):
-            if not p:
-                return ''
-            p = p.strip().replace(' ', '')
-            if not p.startswith('+'):
-                p = '+' + p
-            return p
-        
-        if norm(row['sender']) != norm(user):
+        if sender != user:
             await conn.close()
             return JSONResponse(status_code=403, content={"error": "Not authorized"})
         
@@ -753,18 +744,7 @@ async def delete_message(message_id: int, user: str):
             message_id
         )
         
-        receiver = row['receiver']
         await conn.close()
-        
-        # Notify receiver via websocket so their UI also removes the message
-        if receiver and receiver in clients:
-            try:
-                await clients[receiver].send_json({
-                    "action": "message_deleted",
-                    "id": message_id
-                })
-            except Exception:
-                clients.pop(receiver, None)
         
         return {"ok": True}
         
@@ -921,7 +901,7 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if chat_user:
                         conn = await get_db()
                         messages = await conn.fetch("""
-                            SELECT id, sender, text FROM messages
+                            SELECT id, sender, text, is_read FROM messages
                             WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                             AND is_deleted = 0
                             ORDER BY timestamp
@@ -930,8 +910,59 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         
                         await ws.send_json({
                             "action": "history", 
-                            "messages": [[m['id'], m['sender'], m['text']] for m in messages]
+                            "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
                         })
+                        
+                        # Помечаем входящие как прочитанные и уведомляем отправителя
+                        conn = await get_db()
+                        unread = await conn.fetch("""
+                            SELECT id FROM messages
+                            WHERE sender = $1 AND receiver = $2
+                            AND is_read = 0 AND is_deleted = 0
+                        """, chat_user, user)
+                        
+                        if unread:
+                            unread_ids = [m['id'] for m in unread]
+                            await conn.execute("""
+                                UPDATE messages SET is_read = 1
+                                WHERE sender = $1 AND receiver = $2 AND is_read = 0
+                            """, chat_user, user)
+                            await conn.close()
+                            
+                            # Уведомляем отправителя что его сообщения прочитаны
+                            if chat_user in clients:
+                                try:
+                                    await clients[chat_user].send_json({
+                                        "action": "messages_read",
+                                        "by": user,
+                                        "ids": unread_ids
+                                    })
+                                except:
+                                    clients.pop(chat_user, None)
+                        else:
+                            await conn.close()
+
+                elif action == "read":
+                    # Явная пометка прочтения (когда чат уже открыт и приходит новое сообщение)
+                    from_user = data.get("from")
+                    msg_id = data.get("id")
+                    if from_user and msg_id:
+                        conn = await get_db()
+                        await conn.execute("""
+                            UPDATE messages SET is_read = 1
+                            WHERE id = $1 AND receiver = $2 AND is_read = 0
+                        """, msg_id, user)
+                        await conn.close()
+                        
+                        if from_user in clients:
+                            try:
+                                await clients[from_user].send_json({
+                                    "action": "messages_read",
+                                    "by": user,
+                                    "ids": [msg_id]
+                                })
+                            except:
+                                clients.pop(from_user, None)
 
             except WebSocketDisconnect:
                 break
