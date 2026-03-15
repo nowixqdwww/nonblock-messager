@@ -1187,6 +1187,46 @@ function handleStickerFiles(event) {
     })
 }
 
+async function importTgStickers() {
+    const urlInput = document.getElementById('tgStickerUrl')
+    const btn      = document.getElementById('tgImportBtn')
+    const status   = document.getElementById('tgImportStatus')
+    const url      = urlInput?.value.trim()
+
+    if (!url) { showToast('Вставьте ссылку на пак'); return }
+    if (!url.includes('t.me')) { showToast('Неверная ссылка. Пример: t.me/addstickers/PackName'); return }
+
+    // UI: загрузка
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>' }
+    if (status) { status.style.display = 'flex'; status.className = 'tg-import-status loading'; status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загружаю стикеры...' }
+
+    try {
+        const res = await fetch('/import-tg-stickers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pack_url: url, phone: currentUser })
+        })
+        const data = await res.json()
+
+        if (!res.ok || data.error) {
+            if (status) { status.className = 'tg-import-status error'; status.innerHTML = `<i class="fas fa-xmark"></i> ${data.error || 'Ошибка'}` }
+            return
+        }
+
+        if (status) { status.className = 'tg-import-status success'; status.innerHTML = `<i class="fas fa-check"></i> Загружено ${data.saved} стикеров из «${data.pack_title}»` }
+        if (urlInput) urlInput.value = ''
+
+        // Переключаемся на вкладку «Мои» и обновляем
+        await loadStickers()
+        switchStickerTab('my')
+
+    } catch (e) {
+        if (status) { status.className = 'tg-import-status error'; status.innerHTML = '<i class="fas fa-xmark"></i> Нет соединения с сервером' }
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-download"></i>' }
+    }
+}
+
 async function uploadStickers() {
     const files = document.getElementById('stickerFiles').files
     if (files.length === 0) {
@@ -1230,6 +1270,131 @@ async function uploadStickers() {
         console.error('Error uploading stickers:', error)
         showToast('Ошибка загрузки стикеров')
     }
+}
+
+
+
+// ============= ИМПОРТ СТИКЕРОВ ИЗ TELEGRAM =============
+
+let tgPackData = null  // данные загруженного пака
+
+async function previewTgPack() {
+    const input = document.getElementById('tgPackUrl')
+    const url = input?.value.trim()
+    if (!url) { showToast('Вставьте ссылку на пак'); return }
+
+    // Извлекаем имя пака из ссылки
+    const match = url.match(/t\.me\/addstickers\/([A-Za-z0-9_]+)/i)
+    if (!match) {
+        showToast('Неверная ссылка. Формат: t.me/addstickers/ИмяПака')
+        return
+    }
+    const packName = match[1]
+
+    // Показываем загрузку
+    const btn = document.querySelector('.tg-import-btn')
+    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true }
+    document.getElementById('tgPackPreview').style.display = 'none'
+
+    try {
+        const res = await fetch(`/tg-pack-preview/${encodeURIComponent(packName)}`)
+        const data = await res.json()
+
+        if (!res.ok || data.error) {
+            showToast(data.error || 'Пак не найден')
+            return
+        }
+
+        if (!data.preview_urls || data.preview_urls.length === 0) {
+            showToast('Стикеры не найдены. Попробуйте другой пак.')
+            return
+        }
+
+        tgPackData = data
+        renderTgPackPreview(data)
+
+    } catch (e) {
+        console.error('TG pack preview error:', e)
+        showToast('Ошибка подключения к серверу')
+    } finally {
+        if (btn) { btn.innerHTML = '<i class="fas fa-search"></i>'; btn.disabled = false }
+    }
+}
+
+function renderTgPackPreview(data) {
+    document.getElementById('tgPackName').textContent = data.title || data.pack_name
+    document.getElementById('tgPackCount').textContent =
+        data.total_found ? `${data.total_found} стикеров` : ''
+
+    const container = document.getElementById('tgPackStickers')
+    container.innerHTML = ''
+    data.preview_urls.forEach(url => {
+        const img = document.createElement('img')
+        img.src = url
+        img.className = 'tg-pack-sticker-thumb'
+        img.alt = 'sticker'
+        img.onerror = () => img.style.display = 'none'
+        container.appendChild(img)
+    })
+
+    document.getElementById('tgPackPreview').style.display = 'block'
+    document.getElementById('tgImportProgress').style.display = 'none'
+    document.getElementById('tgImportBtn').style.display = 'block'
+    document.getElementById('tgImportBtn').disabled = false
+    document.getElementById('tgImportBtn').innerHTML = '<i class="fas fa-download"></i> Добавить все стикеры'
+}
+
+async function importTgPack() {
+    if (!tgPackData || !currentUser) return
+
+    const btn = document.getElementById('tgImportBtn')
+    const progress = document.getElementById('tgImportProgress')
+    const fill = document.getElementById('tgProgressFill')
+    const text = document.getElementById('tgProgressText')
+
+    btn.style.display = 'none'
+    progress.style.display = 'block'
+    fill.style.width = '10%'
+    text.textContent = 'Загрузка стикеров...'
+
+    try {
+        const res = await fetch(`/import-tg-pack/${encodeURIComponent(currentUser)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: tgPackData.preview_urls })
+        })
+
+        const data = await res.json()
+
+        fill.style.width = '100%'
+
+        if (data.ok) {
+            text.textContent = `✅ Добавлено ${data.saved} стикеров!`
+            showToast(`Добавлено ${data.saved} стикеров из пака «${tgPackData.title}»`)
+            await loadStickers()
+            setTimeout(() => {
+                cancelTgImport()
+                switchStickerTab('my')
+            }, 1500)
+        } else {
+            text.textContent = data.error || 'Ошибка импорта'
+            showToast(data.error || 'Ошибка импорта')
+            btn.style.display = 'block'
+            btn.disabled = false
+        }
+
+    } catch (e) {
+        console.error('Import error:', e)
+        text.textContent = 'Ошибка соединения'
+        btn.style.display = 'block'
+        btn.disabled = false
+    }
+}
+
+function cancelTgImport() {
+    tgPackData = null
+    document.getElementById('tgPackPreview').style.display = 'none'
+    document.getElementById('tgPackUrl').value = ''
 }
 
 const uploadArea = document.getElementById('stickerUploadArea')
@@ -2258,6 +2423,10 @@ window.closeStickerModal = closeStickerModal
 window.switchStickerTab = switchStickerTab
 window.sendSticker = sendSticker
 window.uploadStickers = uploadStickers
+window.importTgStickers = importTgStickers
+window.previewTgPack = previewTgPack
+window.importTgPack = importTgPack
+window.cancelTgImport = cancelTgImport
 window.insertEmoji = insertEmoji
 window.renderEmojiGrid = renderEmojiGrid
 window.forwardMessage = forwardMessage
