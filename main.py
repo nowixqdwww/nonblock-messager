@@ -900,69 +900,69 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     chat_user = data.get("user")
                     if chat_user:
                         conn = await get_db()
-                        messages = await conn.fetch("""
-                            SELECT id, sender, text, is_read FROM messages
-                            WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                            AND is_deleted = 0
-                            ORDER BY timestamp
-                        """, user, chat_user)
-                        await conn.close()
-                        
-                        await ws.send_json({
-                            "action": "history", 
-                            "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
-                        })
-                        
-                        # Помечаем входящие как прочитанные и уведомляем отправителя
-                        conn = await get_db()
-                        unread = await conn.fetch("""
-                            SELECT id FROM messages
-                            WHERE sender = $1 AND receiver = $2
-                            AND is_read = 0 AND is_deleted = 0
-                        """, chat_user, user)
-                        
-                        if unread:
-                            unread_ids = [m['id'] for m in unread]
-                            await conn.execute("""
-                                UPDATE messages SET is_read = 1
-                                WHERE sender = $1 AND receiver = $2 AND is_read = 0
+                        try:
+                            messages = await conn.fetch("""
+                                SELECT id, sender, text, is_read FROM messages
+                                WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
+                                AND is_deleted = 0
+                                ORDER BY timestamp
+                            """, user, chat_user)
+
+                            await ws.send_json({
+                                "action": "history",
+                                "messages": [
+                                    [int(m["id"]), m["sender"], m["text"], 1 if m["is_read"] else 0]
+                                    for m in messages
+                                ]
+                            })
+
+                            unread = await conn.fetch("""
+                                SELECT id FROM messages
+                                WHERE sender = $1 AND receiver = $2
+                                AND is_read = 0 AND is_deleted = 0
                             """, chat_user, user)
-                            await conn.close()
-                            
-                            # Уведомляем отправителя что его сообщения прочитаны
-                            if chat_user in clients:
-                                try:
-                                    await clients[chat_user].send_json({
-                                        "action": "messages_read",
-                                        "by": user,
-                                        "ids": unread_ids
-                                    })
-                                except:
-                                    clients.pop(chat_user, None)
-                        else:
+
+                            if unread:
+                                unread_ids = [int(m["id"]) for m in unread]
+                                await conn.execute("""
+                                    UPDATE messages SET is_read = 1
+                                    WHERE sender = $1 AND receiver = $2 AND is_read = 0
+                                """, chat_user, user)
+
+                                if chat_user in clients:
+                                    try:
+                                        await clients[chat_user].send_json({
+                                            "action": "messages_read",
+                                            "by": user,
+                                            "ids": unread_ids
+                                        })
+                                    except Exception:
+                                        clients.pop(chat_user, None)
+                        finally:
                             await conn.close()
 
                 elif action == "read":
-                    # Явная пометка прочтения (когда чат уже открыт и приходит новое сообщение)
-                    from_user = data.get("from")
+                    sender_user = data.get("from")
                     msg_id = data.get("id")
-                    if from_user and msg_id:
+                    if sender_user and msg_id is not None:
                         conn = await get_db()
-                        await conn.execute("""
-                            UPDATE messages SET is_read = 1
-                            WHERE id = $1 AND receiver = $2 AND is_read = 0
-                        """, msg_id, user)
-                        await conn.close()
-                        
-                        if from_user in clients:
+                        try:
+                            await conn.execute("""
+                                UPDATE messages SET is_read = 1
+                                WHERE id = $1 AND receiver = $2 AND is_read = 0
+                            """, int(msg_id), user)
+                        finally:
+                            await conn.close()
+
+                        if sender_user in clients:
                             try:
-                                await clients[from_user].send_json({
+                                await clients[sender_user].send_json({
                                     "action": "messages_read",
                                     "by": user,
-                                    "ids": [msg_id]
+                                    "ids": [int(msg_id)]
                                 })
-                            except:
-                                clients.pop(from_user, None)
+                            except Exception:
+                                clients.pop(sender_user, None)
 
             except WebSocketDisconnect:
                 break
