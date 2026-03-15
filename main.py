@@ -73,9 +73,21 @@ async def init_db():
                 bio TEXT,
                 avatar TEXT,
                 password TEXT,
+                last_seen TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Добавляем last_seen если не существует (для существующих БД)
+        col_exists = await conn.fetchval("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'last_seen'
+            )
+        """)
+        if not col_exists:
+            await conn.execute("ALTER TABLE users ADD COLUMN last_seen TIMESTAMP")
+            logger.info("Added last_seen column to users table")
         
         # Проверяем и добавляем колонку password если нужно
         column_exists = await conn.fetchval("""
@@ -895,74 +907,39 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             })
                         except:
                             clients.pop(to, None)
+                    
+                    # При уходе оффлайн — сообщаем всем собеседникам last_seen
+                    if not online:
+                        from datetime import datetime, timezone
+                        last_seen_iso = datetime.now(timezone.utc).isoformat()
+                        # Уведомляем всех кто открыл чат с нами
+                        for contact_phone, contact_ws in list(clients.items()):
+                            if contact_phone != user:
+                                try:
+                                    await contact_ws.send_json({
+                                        "action": "last_seen",
+                                        "from": user,
+                                        "last_seen": last_seen_iso
+                                    })
+                                except:
+                                    pass
 
                 elif action == "history":
                     chat_user = data.get("user")
                     if chat_user:
                         conn = await get_db()
-                        try:
-                            messages = await conn.fetch("""
-                                SELECT id, sender, text, is_read FROM messages
-                                WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                                AND is_deleted = 0
-                                ORDER BY timestamp
-                            """, user, chat_user)
-
-                            await ws.send_json({
-                                "action": "history",
-                                "messages": [
-                                    [int(m["id"]), m["sender"], m["text"], 1 if m["is_read"] else 0]
-                                    for m in messages
-                                ]
-                            })
-
-                            unread = await conn.fetch("""
-                                SELECT id FROM messages
-                                WHERE sender = $1 AND receiver = $2
-                                AND is_read = 0 AND is_deleted = 0
-                            """, chat_user, user)
-
-                            if unread:
-                                unread_ids = [int(m["id"]) for m in unread]
-                                await conn.execute("""
-                                    UPDATE messages SET is_read = 1
-                                    WHERE sender = $1 AND receiver = $2 AND is_read = 0
-                                """, chat_user, user)
-
-                                if chat_user in clients:
-                                    try:
-                                        await clients[chat_user].send_json({
-                                            "action": "messages_read",
-                                            "by": user,
-                                            "ids": unread_ids
-                                        })
-                                    except Exception:
-                                        clients.pop(chat_user, None)
-                        finally:
-                            await conn.close()
-
-                elif action == "read":
-                    sender_user = data.get("from")
-                    msg_id = data.get("id")
-                    if sender_user and msg_id is not None:
-                        conn = await get_db()
-                        try:
-                            await conn.execute("""
-                                UPDATE messages SET is_read = 1
-                                WHERE id = $1 AND receiver = $2 AND is_read = 0
-                            """, int(msg_id), user)
-                        finally:
-                            await conn.close()
-
-                        if sender_user in clients:
-                            try:
-                                await clients[sender_user].send_json({
-                                    "action": "messages_read",
-                                    "by": user,
-                                    "ids": [int(msg_id)]
-                                })
-                            except Exception:
-                                clients.pop(sender_user, None)
+                        messages = await conn.fetch("""
+                            SELECT id, sender, text FROM messages
+                            WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
+                            AND is_deleted = 0
+                            ORDER BY timestamp
+                        """, user, chat_user)
+                        await conn.close()
+                        
+                        await ws.send_json({
+                            "action": "history", 
+                            "messages": [[m['id'], m['sender'], m['text']] for m in messages]
+                        })
 
             except WebSocketDisconnect:
                 break
@@ -973,6 +950,15 @@ async def websocket_endpoint(ws: WebSocket, user: str):
     finally:
         clients.pop(user, None)
         logger.info(f"User {user} disconnected. Total: {len(clients)}")
+        # Сохраняем время последнего визита
+        try:
+            conn = await get_db()
+            await conn.execute(
+                "UPDATE users SET last_seen = NOW() WHERE phone = $1", user
+            )
+            await conn.close()
+        except Exception as e:
+            logger.error(f"Error saving last_seen: {e}")
 
 # ============= СТАТИЧЕСКИЕ ФАЙЛЫ =============
 
