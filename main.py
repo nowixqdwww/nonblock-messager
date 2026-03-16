@@ -49,7 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = "8636203630:AAEOehs3Q-UfKHgMfqSvXmVwcsOzFcS6z8o"
+TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -640,29 +640,12 @@ async def import_sticker_pack(phone: str, request: Request):
                 file_path = fdata["result"]["file_path"]
                 dl_url    = f"{tg_file}/{file_path}"
 
-                step = f"sticker_{i}_download"
-                try:
-                    content = await loop.run_in_executor(None, _tg_download_file, dl_url)
-                except Exception as dl_err:
-                    logger.warning(f"TG download failed sticker {i}: {dl_err}")
-                    if first_error is None:
-                        first_error = str(dl_err)
-                    continue
-
-                if not content:
-                    continue
-
+                # Сохраняем прямой URL Telegram CDN — файловая система Render эфемерна
+                # URL вида https://api.telegram.org/file/botTOKEN/stickers/file_X.webp
                 step = f"sticker_{i}_save"
-                ext      = ".webp" if file_path.endswith(".webp") else ".png"
-                ts       = int(_time.time() * 1000)
-                filename = f"tg_{phone.replace('+','')}_{ts}_{i}{ext}"
-                fpath    = os.path.join(STICKER_DIR, filename)
-                with open(fpath, "wb") as f_out:
-                    f_out.write(content)
-
                 await conn.execute(
                     "INSERT INTO stickers (user_phone, sticker_url) VALUES ($1, $2)",
-                    phone, f"/stickers/{filename}"
+                    phone, dl_url
                 )
                 saved += 1
                 logger.info(f"TG saved sticker {i}")
