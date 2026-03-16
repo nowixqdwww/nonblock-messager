@@ -551,9 +551,11 @@ async def import_sticker_pack(phone: str, request: Request):
         tg_api  = f"https://api.telegram.org/bot{token}"
         tg_file = f"https://api.telegram.org/file/bot{token}"
 
-        # Получаем инфо о паке (в отдельном потоке чтобы не блокировать event loop)
-        loop = asyncio.get_event_loop()
-        pack_url = f"{tg_api}/getStickerSet?name={urllib.parse.quote(pack_name)}"
+        # asyncio.get_running_loop() — правильный способ в Python 3.10+
+        loop = asyncio.get_running_loop()
+
+        # Получаем инфо о паке
+        pack_url  = f"{tg_api}/getStickerSet?name={urllib.parse.quote(pack_name, safe='')}"
         pack_data = await loop.run_in_executor(None, _tg_get, pack_url)
 
         if not pack_data.get("ok"):
@@ -573,16 +575,17 @@ async def import_sticker_pack(phone: str, request: Request):
             for sticker in stickers:
                 file_id = sticker["file_id"]
 
-                # Получаем путь к файлу
-                furl   = f"{tg_api}/getFile?file_id={urllib.parse.quote(file_id)}"
-                fdata  = await loop.run_in_executor(None, _tg_get, furl)
+                # file_id передаём как параметр запроса — НЕ через quote
+                # urllib.parse.urlencode правильно кодирует все спецсимволы
+                furl  = f"{tg_api}/getFile?" + urllib.parse.urlencode({"file_id": file_id})
+                fdata = await loop.run_in_executor(None, _tg_get, furl)
                 if not fdata.get("ok"):
                     continue
 
                 file_path = fdata["result"]["file_path"]
                 dl_url    = f"{tg_file}/{file_path}"
 
-                # Скачиваем
+                # Скачиваем файл
                 content = await loop.run_in_executor(None, _tg_download, dl_url)
                 if not content:
                     continue
