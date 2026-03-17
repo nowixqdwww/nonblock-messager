@@ -166,22 +166,22 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS voice_messages (
                 id SERIAL PRIMARY KEY,
                 sender TEXT NOT NULL,
-                voice_data BYTEA NOT NULL,
+                data BYTEA,
+                voice_data BYTEA,
                 duration INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
-            # Таблица голосовых сообщений
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS voice_messages (
-                id SERIAL PRIMARY KEY,
-                sender TEXT NOT NULL,
-                data BYTEA NOT NULL,
-                duration INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        # Миграция: добавляем колонку data если её нет
+        data_col = await conn.fetchval("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns
+                WHERE table_name = 'voice_messages' AND column_name = 'data'
             )
         """)
+        if not data_col:
+            await conn.execute("ALTER TABLE voice_messages ADD COLUMN data BYTEA")
+            logger.info("Added data column to voice_messages")
 
             # Таблица реакций
         await conn.execute("""
@@ -894,13 +894,16 @@ async def get_voice(voice_id: int):
     """Отдаём аудио файл по id."""
     try:
         conn = await get_db()
-        row = await conn.fetchrow("SELECT data FROM voice_messages WHERE id = $1", voice_id)
+        row = await conn.fetchrow("SELECT data, voice_data FROM voice_messages WHERE id = $1", voice_id)
         await conn.close()
         if not row:
             return JSONResponse(status_code=404, content={"error": "Not found"})
+        raw = row["data"] or row["voice_data"]
+        if not raw:
+            return JSONResponse(status_code=404, content={"error": "No audio data"})
         from fastapi.responses import Response
         return Response(
-            content=bytes(row["data"]),
+            content=bytes(raw),
             media_type="audio/webm",
             headers={"Cache-Control": "public, max-age=86400"}
         )
