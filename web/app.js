@@ -1611,7 +1611,7 @@ async function sendVoiceMessage() {
     const duration = Math.round((Date.now() - voiceStartTime) / 1000)
 
     try {
-        const res = await fetch('/voice/upload', {
+        const res = await fetch('/api/voice/upload', {
             method: 'POST',
             headers: {
                 'Content-Type': 'audio/webm',
@@ -1623,7 +1623,7 @@ async function sendVoiceMessage() {
         const data = await res.json()
         if (!res.ok) { showToast(data.error || 'Ошибка отправки'); return }
 
-        const voiceText = `[VOICE:${duration}]/voice/${data.voice_id}[/VOICE]`
+        const voiceText = `[VOICE:${duration}]/api/voice/${data.voice_id}[/VOICE]`
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ action: 'send', to: currentChat, text: voiceText }))
         }
