@@ -1150,7 +1150,9 @@ function addMessage(user, text, messageId = null, isRead = false) {
         div.className = 'message voice-message ' + (isMe ? 'me' : 'other')
         if (messageId) div.dataset.messageId = messageId
         const duration = parseInt(voiceMatch[1] || '0')
-        const voiceUrl = voiceMatch[2]
+        let voiceUrl = voiceMatch[2]
+        // Нормализуем старые пути /voice/123 → /api/voice/123
+        if (voiceUrl.match(/^\/voice\/\d+$/)) voiceUrl = '/api' + voiceUrl
         const player = createVoicePlayer(voiceUrl, isMe, duration)
         div.appendChild(player)
         if (isMe) {
