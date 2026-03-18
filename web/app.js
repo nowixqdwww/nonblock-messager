@@ -1970,9 +1970,17 @@ async function loadMessageReactions(messageId) {
 
 // ============= ФУНКЦИИ ДЛЯ ЧАТОВ =============
 
+function formatLastMessage(text) {
+    if (!text) return 'Нет сообщений'
+    if (text.match(/^\[VOICE/))   return '🎤 Голосовое сообщение'
+    if (text.match(/^\[STICKER/)) return '🖼 Стикер'
+    if (text.match(/^\[FWD:/))    return '↩ Пересланное сообщение'
+    return text
+}
+
 function createChatElement(chat) {
     const displayName = chat.displayName || chat.name || chat.username || chat.phone
-    const lastMessage = chat.last || 'Нет сообщений'
+    const lastMessage = formatLastMessage(chat.last)
     const unreadCount = chat.unread || 0
     
     let div = document.createElement('div')
@@ -2449,7 +2457,7 @@ function connect() {
                     
                     const lastMsgElement = existingChat.querySelector('.chat-last-message')
                     if (lastMsgElement) {
-                        lastMsgElement.innerText = data.text
+                        lastMsgElement.innerText = formatLastMessage(data.text)
                     }
                 }
                 
