@@ -846,8 +846,10 @@ async def upload_voice(request: Request):
         body = await request.body()
         sender = request.headers.get("X-Sender", "")
         duration = int(request.headers.get("X-Duration", "0"))
+        content_type = request.headers.get("Content-Type", "audio/webm")
         if not body or not sender:
             return JSONResponse(status_code=400, content={"error": "No data"})
+        logger.info(f"Voice upload: sender={sender} size={len(body)} type={content_type} duration={duration}s")
 
         conn = await get_db()
         try:
