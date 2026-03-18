@@ -868,23 +868,29 @@ async def get_voice(voice_id: int):
     """Отдаём аудио файл по id."""
     try:
         conn = await get_db()
-        row = await conn.fetchrow("SELECT voice_data FROM voice_messages WHERE id = $1", voice_id)
+        row = await conn.fetchrow("SELECT voice_data, data FROM voice_messages WHERE id = $1", voice_id)
         await conn.close()
         if not row:
+            logger.error(f"Voice {voice_id}: not found in DB")
             return JSONResponse(status_code=404, content={"error": "Not found"})
-        raw = row["voice_data"]
+        raw = row["voice_data"] or row.get("data")
         if not raw:
+            logger.error(f"Voice {voice_id}: found in DB but data is NULL")
             return JSONResponse(status_code=404, content={"error": "No audio data"})
         data = bytes(raw)
+        logger.info(f"Voice {voice_id}: serving {len(data)} bytes, first4={data[:4].hex()}")
         # Определяем MIME по magic bytes
         if data[:4] == b'OggS':
             mime = "audio/ogg"
         elif data[:4] == b'RIFF':
             mime = "audio/wav"
-        elif data[4:8] == b'ftyp':
+        elif len(data) > 8 and data[4:8] in (b'ftyp', b'mdat', b'moov', b'free'):
             mime = "audio/mp4"
+        elif data[:3] == b'ID3':
+            mime = "audio/mpeg"
         else:
             mime = "audio/webm"
+        logger.info(f"Voice {voice_id}: mime={mime}")
         from fastapi.responses import Response
         return Response(
             content=data,
@@ -896,6 +902,7 @@ async def get_voice(voice_id: int):
             }
         )
     except Exception as e:
+        logger.error(f"Voice {voice_id} error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/search")
