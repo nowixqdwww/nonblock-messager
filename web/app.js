@@ -1825,20 +1825,29 @@ function createVoicePlayer(url, isMe, duration) {
     let playing = false
 
     audio.addEventListener('loadedmetadata', () => {
-        const d = isFinite(audio.duration) ? Math.floor(audio.duration) : (duration || 0)
-        timeEl.textContent = `${Math.floor(d/60)}:${(d%60).toString().padStart(2,'0')}`
+        if (isFinite(audio.duration)) {
+            const d = Math.floor(audio.duration)
+            timeEl.textContent = `${Math.floor(d/60)}:${(d%60).toString().padStart(2,'0')}`
+        }
+        // Если Infinity — оставляем значение из duration параметра
     })
 
     audio.addEventListener('timeupdate', () => {
-        const pct  = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0
+        const finite = isFinite(audio.duration) && audio.duration > 0
+        const pct = finite ? (audio.currentTime / audio.duration) * 100 : 0
         fill.style.width = pct + '%'
-        // Подсвечиваем пройденные бары
         const barEls = bars.querySelectorAll('.voice-wave-bar')
         barEls.forEach((b, i) => {
             b.classList.toggle('played', i / barEls.length < pct / 100)
         })
-        const left = Math.max(0, Math.floor((audio.duration || 0) - audio.currentTime))
-        timeEl.textContent = `${Math.floor(left/60)}:${(left%60).toString().padStart(2,'0')}`
+        // Показываем текущее время если duration неизвестна, или оставшееся если известна
+        const cur = Math.floor(audio.currentTime)
+        if (finite) {
+            const left = Math.max(0, Math.floor(audio.duration - audio.currentTime))
+            timeEl.textContent = `${Math.floor(left/60)}:${(left%60).toString().padStart(2,'0')}`
+        } else {
+            timeEl.textContent = `${Math.floor(cur/60)}:${(cur%60).toString().padStart(2,'0')}`
+        }
     })
 
     audio.addEventListener('ended', () => {
