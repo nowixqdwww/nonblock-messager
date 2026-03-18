@@ -153,33 +153,37 @@
             <!-- Сообщения -->
             <div id="messages" class="messages"></div>
 
-            <!-- Ввод сообщения -->
-            <div class="input-area">
-                <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
-                    <i class="fas fa-face-smile"></i>
-                </button>
-                <input id="text" placeholder="Напишите сообщение..." class="message-input">
-                <button class="voice-btn" id="voiceBtn"
-                    onmousedown="startVoice(event)" onmouseup="stopVoice(event)" onmouseleave="stopVoice(event)"
-                    ontouchstart="startVoice(event)" ontouchend="stopVoice(event)" ontouchcancel="cancelVoice()">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button onclick="send()" class="send-btn" id="sendBtn">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-            <!-- Индикатор записи -->
-            <div class="voice-recording-bar" id="voiceRecordingBar" style="display:none;">
-                <span class="voice-rec-dot"></span>
-                <span class="voice-rec-time" id="voiceRecTime">0:00</span>
-                <span class="voice-rec-hint">Отпустите для отправки</span>
-                <button class="voice-cancel-btn" onclick="cancelVoice()"><i class="fas fa-xmark"></i></button>
-            </div>
-            <div class="voice-recording-bar" id="voiceRecordingBar" style="display:none;">
-                <div class="voice-rec-dot"></div>
-                <span class="voice-rec-time" id="voiceRecTime">0:00</span>
-                <span class="voice-rec-hint">Отпустите чтобы отправить · Смахните чтобы отменить</span>
-                <button class="voice-rec-cancel" onclick="cancelVoiceRecord()">✕</button>
+            <!-- Зона ввода / записи -->
+            <div class="input-wrap" id="inputWrap">
+
+                <!-- Обычная строка ввода -->
+                <div class="input-area" id="inputArea">
+                    <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
+                        <i class="fas fa-face-smile"></i>
+                    </button>
+                    <input id="text" placeholder="Напишите сообщение..." class="message-input">
+                    <button class="voice-btn" id="voiceBtn">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button onclick="send()" class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <!-- Строка записи голосового (скрыта по умолчанию) -->
+                <div class="voice-record-area" id="voiceRecordArea">
+                    <button class="voice-cancel-btn" onclick="cancelVoice()">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                    <div class="voice-record-wave" id="voiceRecordWave">
+                        <!-- бары вставляются через JS -->
+                    </div>
+                    <span class="voice-rec-time" id="voiceRecTime">0:00</span>
+                    <button class="voice-send-btn" id="voiceSendBtn" onclick="commitVoice()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
