@@ -3151,72 +3151,94 @@ function toggleVideoRecord() {
 function onVideoRecordStop() {
     const mimeType = videoRecorder?.mimeType || 'video/webm'
     videoBlob = new Blob(videoChunks, { type: mimeType })
-    console.log(`[video] blob size=${videoBlob.size} type=${mimeType}`)
 
-    // Показываем превью записанного
     const playback = document.getElementById('videoPlayback')
     const preview  = document.getElementById('videoPreview')
     const ring     = document.getElementById('videoProgressRing')
-    const circPreview = 2 * Math.PI * 105
+    const previewCirc = document.querySelector('.video-recorder-circle')
 
     playback.src = URL.createObjectURL(videoBlob)
     preview.style.display = 'none'
     playback.style.display = 'block'
     playback.load()
 
-    // Обновляем кольцо прогресса при воспроизведении
+    // Убираем старую play-кнопку если была
+    const oldBtn = previewCirc?.querySelector('.preview-play-btn')
+    if (oldBtn) oldBtn.remove()
+
+    // Добавляем кастомную кнопку Play поверх предпросмотра
+    const playBtn = document.createElement('button')
+    playBtn.className = 'preview-play-btn'
+    playBtn.style.cssText = 'position:absolute;inset:0;margin:auto;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,0.55);color:white;border:none;font-size:22px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)'
+    playBtn.innerHTML = '<i class="fas fa-play"></i>'
+    previewCirc?.appendChild(playBtn)
+
+    let previewPlaying = false
+    playBtn.onclick = (e) => {
+        e.stopPropagation()
+        if (previewPlaying) {
+            playback.pause()
+            playBtn.innerHTML = '<i class="fas fa-play"></i>'
+        } else {
+            playback.play().catch(() => {})
+            playBtn.innerHTML = '<i class="fas fa-pause"></i>'
+        }
+        previewPlaying = !previewPlaying
+    }
+    playback.onended = () => {
+        previewPlaying = false
+        playBtn.innerHTML = '<i class="fas fa-play"></i>'
+        playback.currentTime = 0
+        if (ring) ring.style.strokeDashoffset = String(2 * Math.PI * 105)
+    }
+
+    // Обновляем кольцо прогресса
+    const circLen = 2 * Math.PI * 105
     playback.ontimeupdate = () => {
         if (!playback.duration || !isFinite(playback.duration)) return
         const pct = playback.currentTime / playback.duration
-        if (ring) ring.style.strokeDashoffset = circPreview * (1 - pct)
-    }
-    playback.onended = () => {
-        if (ring) ring.style.strokeDashoffset = circPreview
+        if (ring) ring.style.strokeDashoffset = String(circLen * (1 - pct))
     }
 
-    // Перемотка кликом и drag по кружку в модалке
-    const circle = document.querySelector('.video-recorder-circle')
-    if (circle && !circle._seekListener) {
-        circle._seekListener = true
-        let isScrubbing = false
+    // Перемотка drag по кружку предпросмотра
+    if (previewCirc && !previewCirc._seekBound) {
+        previewCirc._seekBound = true
+        let seeking = false
 
-        function getPreviewAnglePct(e) {
-            const rect = circle.getBoundingClientRect()
-            const cx = rect.left + rect.width / 2
-            const cy = rect.top + rect.height / 2
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY
-            let angle = Math.atan2(clientX - cx, -(clientY - cy))
-            if (angle < 0) angle += 2 * Math.PI
-            return angle / (2 * Math.PI)
+        function previewAngle(e) {
+            const rc = previewCirc.getBoundingClientRect()
+            const cx = rc.left + rc.width / 2, cy = rc.top + rc.height / 2
+            const px = e.touches ? e.touches[0].clientX : e.clientX
+            const py = e.touches ? e.touches[0].clientY : e.clientY
+            let a = Math.atan2(px - cx, -(py - cy))
+            if (a < 0) a += 2 * Math.PI
+            return a / (2 * Math.PI)
         }
 
-        const onDown = (e) => {
+        previewCirc.addEventListener('mousedown', (e) => {
+            if (e.target === playBtn || e.target.closest('.preview-play-btn')) return
             if (!playback.duration || playback.style.display === 'none') return
-            isScrubbing = true
-            const wasPaused = playback.paused
-            playback.pause()
-            playback.currentTime = getPreviewAnglePct(e) * playback.duration
-            if (!wasPaused) playback._wasPlaying = true
+            seeking = true; playback.pause()
+            playback.currentTime = previewAngle(e) * playback.duration
             e.preventDefault()
-        }
-        const onMove = (e) => {
-            if (!isScrubbing || !playback.duration) return
-            playback.currentTime = getPreviewAnglePct(e) * playback.duration
+        })
+        previewCirc.addEventListener('touchstart', (e) => {
+            if (e.target === playBtn || e.target.closest('.preview-play-btn')) return
+            if (!playback.duration || playback.style.display === 'none') return
+            seeking = true; playback.pause()
+            playback.currentTime = previewAngle(e) * playback.duration
             e.preventDefault()
-        }
-        const onUp = () => {
-            if (!isScrubbing) return
-            isScrubbing = false
-            if (playback._wasPlaying) { playback.play().catch(()=>{}); playback._wasPlaying = false }
-        }
-
-        circle.addEventListener('mousedown', onDown)
-        circle.addEventListener('touchstart', onDown, { passive: false })
-        document.addEventListener('mousemove', onMove)
-        document.addEventListener('mouseup', onUp)
-        document.addEventListener('touchmove', onMove, { passive: false })
-        document.addEventListener('touchend', onUp)
+        }, { passive: false })
+        document.addEventListener('mousemove', (e) => {
+            if (!seeking || !playback.duration) return
+            playback.currentTime = previewAngle(e) * playback.duration
+        })
+        document.addEventListener('mouseup', () => { seeking = false })
+        document.addEventListener('touchmove', (e) => {
+            if (!seeking || !playback.duration) return
+            playback.currentTime = previewAngle(e) * playback.duration
+        })
+        document.addEventListener('touchend', () => { seeking = false })
     }
 
     document.getElementById('videoRecorderActions').style.display = 'none'
