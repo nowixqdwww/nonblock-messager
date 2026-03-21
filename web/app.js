@@ -1841,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateInputButtons()
 
     document.getElementById('text')?.addEventListener('input', updateInputButtons)
-    document.getElementById('videomsgBtn')?.addEventListener('click', () => {
+=> {
         console.log('[video] btn clicked, currentChat=', currentChat)
         openVideoRecorder()
     })
@@ -1856,7 +1856,7 @@ if (document.readyState !== 'loading') {
     updateVoiceBtnBehavior()
     updateInputButtons()
     document.getElementById('text')?.addEventListener('input', updateInputButtons)
-    document.getElementById('videomsgBtn')?.addEventListener('click', () => {
+=> {
         console.log('[video] btn clicked (fallback), currentChat=', currentChat)
         openVideoRecorder()
     })
@@ -3065,8 +3065,7 @@ let videoMaxDuration = 60  // секунд
 let videoBlob = null
 
 async function openVideoRecorder() {
-    console.log('[video] openVideoRecorder called, currentChat=', currentChat)
-    if (!currentChat) { showToast('Сначала откройте чат'); }  // не блокируем, просто предупреждаем
+    if (!currentChat) { showToast('Сначала откройте чат'); return }
     const modal = document.getElementById('videoRecorderModal')
     if (!modal) return
     modal.style.display = 'flex'
