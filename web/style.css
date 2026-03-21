@@ -3097,7 +3097,7 @@ body {
     width: 200px;
     height: 200px;
     border-radius: 50%;
-    overflow: hidden;
+    /* НЕТ overflow:hidden — иначе SVG кольцо обрезается */
     position: relative;
     background: #111;
     cursor: pointer;
@@ -3109,6 +3109,9 @@ body {
     object-fit: cover;
     display: block;
     border-radius: 50%;
+    /* Видео обрезаем через clip-path вместо overflow */
+    clip-path: circle(50%);
+    -webkit-clip-path: circle(50%);
 }
 .video-msg-play {
     position: absolute;
