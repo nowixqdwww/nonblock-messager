@@ -3308,82 +3308,79 @@ function resetVideoRing() {
 }
 
 // Создаём видео-плеер в сообщении
+    // Внешний контейнер — больше круга, чтобы кольцо было видно
 function createVideoPlayer(url, isMe) {
-    const wrap = document.createElement('div')
-    wrap.className = 'video-msg-circle'
+    const outer = document.createElement('div')
+    outer.className = 'video-msg-outer'
+    outer.style.cssText = 'position:relative;width:216px;height:216px;flex-shrink:0'
+
+    // SVG кольцо — поверх всего, position:absolute
+    const r = 100, circ = 2 * Math.PI * r
+    const svgNS = 'http://www.w3.org/2000/svg'
+    const svg = document.createElementNS(svgNS, 'svg')
+    svg.setAttribute('viewBox', '0 0 216 216')
+    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);z-index:2;pointer-events:none'
+
+    const bgC = document.createElementNS(svgNS, 'circle')
+    bgC.setAttribute('cx','108'); bgC.setAttribute('cy','108'); bgC.setAttribute('r', String(r))
+    bgC.setAttribute('fill','none')
+    bgC.setAttribute('stroke', isMe ? 'rgba(255,255,255,0.25)' : 'rgba(102,126,234,0.25)')
+    bgC.setAttribute('stroke-width','4')
+
+    const fillC = document.createElementNS(svgNS, 'circle')
+    fillC.setAttribute('cx','108'); fillC.setAttribute('cy','108'); fillC.setAttribute('r', String(r))
+    fillC.setAttribute('fill','none')
+    fillC.setAttribute('stroke', isMe ? 'white' : '#667eea')
+    fillC.setAttribute('stroke-width','4')
+    fillC.setAttribute('stroke-linecap','round')
+    fillC.setAttribute('stroke-dasharray', String(circ))
+    fillC.setAttribute('stroke-dashoffset', String(circ))
+    fillC.style.transition = 'stroke-dashoffset 0.15s linear'
+
+    svg.appendChild(bgC); svg.appendChild(fillC)
+
+    // Круглый видео-элемент внутри
+    const circle = document.createElement('div')
+    circle.style.cssText = 'position:absolute;inset:8px;border-radius:50%;overflow:hidden;background:#111;z-index:1'
 
     const video = document.createElement('video')
-    video.src = url
-    video.loop = false
-    video.playsInline = true
-    video.preload = 'metadata'
-    video.className = 'video-msg-el'
+    video.src = url; video.playsInline = true; video.preload = 'metadata'
+    video.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block'
 
-    // SVG прогресс-кольцо
-    const r = 94, circ = 2 * Math.PI * r
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-    svg.setAttribute('viewBox', '0 0 200 200')
-    svg.className = 'video-msg-ring'
-    svg.style.transform = 'rotate(-90deg)'
-
-    const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    bgCircle.setAttribute('cx', '100')
-    bgCircle.setAttribute('cy', '100')
-    bgCircle.setAttribute('r', String(r))
-    bgCircle.setAttribute('fill', 'none')
-    bgCircle.setAttribute('stroke', 'rgba(255,255,255,0.25)')
-    bgCircle.setAttribute('stroke-width', '5')
-
-    const fillCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    fillCircle.setAttribute('cx', '100')
-    fillCircle.setAttribute('cy', '100')
-    fillCircle.setAttribute('r', String(r))
-    fillCircle.setAttribute('fill', 'none')
-    fillCircle.setAttribute('stroke', isMe ? 'white' : '#667eea')
-    fillCircle.setAttribute('stroke-width', '5')
-    fillCircle.setAttribute('stroke-linecap', 'round')
-    fillCircle.setAttribute('stroke-dasharray', String(circ))
-    fillCircle.setAttribute('stroke-dashoffset', String(circ))
-    fillCircle.style.transition = 'stroke-dashoffset 0.15s linear'
-
-    svg.appendChild(bgCircle)
-    svg.appendChild(fillCircle)
-
+    // Кнопка Play
     const playBtn = document.createElement('button')
-    playBtn.className = 'video-msg-play'
+    playBtn.style.cssText = 'position:absolute;inset:0;margin:auto;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.55);color:white;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);z-index:3'
     playBtn.innerHTML = '<i class="fas fa-play"></i>'
 
     // Таймер
     const timeEl = document.createElement('span')
-    timeEl.className = 'video-msg-time'
+    timeEl.style.cssText = 'position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;z-index:3'
     timeEl.textContent = '0:00'
 
     let playing = false
 
+    function fmt(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}` }
+
     function updateRing() {
-        if (!video.duration) return
+        if (!video.duration || !isFinite(video.duration)) return
         const pct = video.currentTime / video.duration
-        fillCircle.style.strokeDashoffset = circ * (1 - pct)
-        const left = Math.max(0, Math.floor(video.duration - video.currentTime))
-        timeEl.textContent = `${Math.floor(left/60)}:${(left%60).toString().padStart(2,'0')}`
+        fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
+        timeEl.textContent = fmt(video.duration - video.currentTime)
     }
 
     video.addEventListener('loadedmetadata', () => {
-        if (isFinite(video.duration)) {
-            const d = Math.floor(video.duration)
-            timeEl.textContent = `${Math.floor(d/60)}:${(d%60).toString().padStart(2,'0')}`
-        }
+        if (isFinite(video.duration)) timeEl.textContent = fmt(video.duration)
     })
     video.addEventListener('timeupdate', updateRing)
     video.addEventListener('ended', () => {
         playing = false
         playBtn.innerHTML = '<i class="fas fa-play"></i>'
-        playBtn.style.opacity = '1'
         video.currentTime = 0
-        fillCircle.style.strokeDashoffset = circ
+        fillC.setAttribute('stroke-dashoffset', String(circ))
+        if (isFinite(video.duration)) timeEl.textContent = fmt(video.duration)
     })
     video.addEventListener('error', () => {
-        playBtn.innerHTML = '<i class="fas fa-triangle-exclamation" style="color:#ff9500;font-size:12px;"></i>'
+        playBtn.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:#ff9500;font-size:12px"></i>'
         playBtn.disabled = true
     })
 
@@ -3392,74 +3389,54 @@ function createVideoPlayer(url, isMe) {
         if (playing) {
             video.pause()
             playBtn.innerHTML = '<i class="fas fa-play"></i>'
-            playBtn.style.opacity = '1'
         } else {
             video.play().catch(() => showToast('Ошибка воспроизведения'))
             playBtn.innerHTML = '<i class="fas fa-pause"></i>'
-            playBtn.style.opacity = '0.7'
         }
         playing = !playing
     }
 
-    // Перемотка — клик и drag по кольцу
+    // Перемотка drag по SVG кольцу
+    svg.style.pointerEvents = 'auto'
+    svg.style.cursor = 'pointer'
+
     function getAnglePct(e) {
         const rect = svg.getBoundingClientRect()
-        const cx = rect.left + rect.width / 2
-        const cy = rect.top + rect.height / 2
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY
-        let angle = Math.atan2(clientX - cx, -(clientY - cy))
-        if (angle < 0) angle += 2 * Math.PI
-        return angle / (2 * Math.PI)
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
+        const ex = e.touches ? e.touches[0].clientX : e.clientX
+        const ey = e.touches ? e.touches[0].clientY : e.clientY
+        let a = Math.atan2(ex - cx, -(ey - cy))
+        if (a < 0) a += 2 * Math.PI
+        return a / (2 * Math.PI)
     }
 
     let scrubbing = false
-    const wasPlaying = () => playing
-
     svg.addEventListener('mousedown', (e) => {
         if (!video.duration) return
-        scrubbing = true
-        if (playing) { video.pause(); }
-        video.currentTime = getAnglePct(e) * video.duration
-        updateRing()
-        e.preventDefault()
+        scrubbing = true; if (playing) video.pause()
+        video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
     })
     svg.addEventListener('touchstart', (e) => {
         if (!video.duration) return
-        scrubbing = true
-        if (playing) { video.pause(); }
-        video.currentTime = getAnglePct(e) * video.duration
-        updateRing()
-        e.preventDefault()
+        scrubbing = true; if (playing) video.pause()
+        video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
     }, { passive: false })
-
-    const onScrubMove = (e) => {
+    const onMove = (e) => {
         if (!scrubbing || !video.duration) return
-        const pt = e.touches ? e.touches[0] : e
-        let angle = Math.atan2(pt.clientX - (svg.getBoundingClientRect().left + svg.getBoundingClientRect().width/2),
-                              -(pt.clientY - (svg.getBoundingClientRect().top  + svg.getBoundingClientRect().height/2)))
-        if (angle < 0) angle += 2 * Math.PI
-        video.currentTime = (angle / (2 * Math.PI)) * video.duration
-        updateRing()
-        e.preventDefault()
+        video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
     }
-    const onScrubEnd = () => {
-        if (!scrubbing) return
-        scrubbing = false
-        // Возобновляем если было играет
-        if (playing) video.play().catch(()=>{})
-    }
+    const onUp = () => { if (!scrubbing) return; scrubbing = false; if (playing) video.play().catch(()=>{}) }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchend', onUp)
 
-    document.addEventListener('mousemove', onScrubMove)
-    document.addEventListener('mouseup', onScrubEnd)
-    document.addEventListener('touchmove', onScrubMove, { passive: false })
-    document.addEventListener('touchend', onScrubEnd)
-
-    wrap.appendChild(video)
-    wrap.appendChild(svg)
-    wrap.appendChild(playBtn)
-    wrap.appendChild(timeEl)
-    return wrap
+    circle.appendChild(video)
+    outer.appendChild(circle)
+    outer.appendChild(svg)
+    outer.appendChild(playBtn)
+    outer.appendChild(timeEl)
+    return outer
 }
 
 window.openVideoRecorder  = openVideoRecorder
