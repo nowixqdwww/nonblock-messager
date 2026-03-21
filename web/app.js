@@ -1841,10 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateInputButtons()
 
     document.getElementById('text')?.addEventListener('input', updateInputButtons)
-=> {
-        console.log('[video] btn clicked, currentChat=', currentChat)
-        openVideoRecorder()
-    })
+    document.getElementById('videomsgBtn')?.addEventListener('click', () => openVideoRecorder())
     document.getElementById('voiceBtn')?.addEventListener('mousedown', e => {
         if (e.button !== 0) return
         startVoiceRecord(null)
@@ -1856,10 +1853,6 @@ if (document.readyState !== 'loading') {
     updateVoiceBtnBehavior()
     updateInputButtons()
     document.getElementById('text')?.addEventListener('input', updateInputButtons)
-=> {
-        console.log('[video] btn clicked (fallback), currentChat=', currentChat)
-        openVideoRecorder()
-    })
 }
 
 function updateInputButtonsOLD_REMOVED() {}
