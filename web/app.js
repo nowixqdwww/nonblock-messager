@@ -3401,7 +3401,7 @@ function createVideoPlayer(url, isMe) {
     svg.style.cursor = 'pointer'
 
     function getAnglePct(e) {
-        const rect = svg.getBoundingClientRect()
+        const rect = outer.getBoundingClientRect()
         const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
         const ex = e.touches ? e.touches[0].clientX : e.clientX
         const ey = e.touches ? e.touches[0].clientY : e.clientY
@@ -3411,12 +3411,14 @@ function createVideoPlayer(url, isMe) {
     }
 
     let scrubbing = false
-    svg.addEventListener('mousedown', (e) => {
+    // Drag-перемотка на wrap (SVG pointer-events:none)
+    svg.style.pointerEvents = 'auto'
+    outer.addEventListener('mousedown', (e) => {
         if (!video.duration) return
         scrubbing = true; if (playing) video.pause()
         video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
     })
-    svg.addEventListener('touchstart', (e) => {
+    outer.addEventListener('touchstart', (e) => {
         if (!video.duration) return
         scrubbing = true; if (playing) video.pause()
         video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
