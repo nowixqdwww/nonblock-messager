@@ -3320,18 +3320,32 @@ function createVideoPlayer(url, isMe) {
     video.className = 'video-msg-el'
 
     // SVG прогресс-кольцо
-    const r = 96, circ = 2 * Math.PI * r
+    const r = 94, circ = 2 * Math.PI * r
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     svg.setAttribute('viewBox', '0 0 200 200')
     svg.className = 'video-msg-ring'
+    svg.style.transform = 'rotate(-90deg)'
+
     const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    bgCircle.setAttribute('cx','100'); bgCircle.setAttribute('cy','100'); bgCircle.setAttribute('r', r)
-    bgCircle.className = 'vmr-bg'
+    bgCircle.setAttribute('cx', '100')
+    bgCircle.setAttribute('cy', '100')
+    bgCircle.setAttribute('r', String(r))
+    bgCircle.setAttribute('fill', 'none')
+    bgCircle.setAttribute('stroke', 'rgba(255,255,255,0.25)')
+    bgCircle.setAttribute('stroke-width', '5')
+
     const fillCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-    fillCircle.setAttribute('cx','100'); fillCircle.setAttribute('cy','100'); fillCircle.setAttribute('r', r)
-    fillCircle.className = 'vmr-fill'
-    fillCircle.style.strokeDasharray = circ
-    fillCircle.style.strokeDashoffset = circ
+    fillCircle.setAttribute('cx', '100')
+    fillCircle.setAttribute('cy', '100')
+    fillCircle.setAttribute('r', String(r))
+    fillCircle.setAttribute('fill', 'none')
+    fillCircle.setAttribute('stroke', isMe ? 'white' : '#667eea')
+    fillCircle.setAttribute('stroke-width', '5')
+    fillCircle.setAttribute('stroke-linecap', 'round')
+    fillCircle.setAttribute('stroke-dasharray', String(circ))
+    fillCircle.setAttribute('stroke-dashoffset', String(circ))
+    fillCircle.style.transition = 'stroke-dashoffset 0.15s linear'
+
     svg.appendChild(bgCircle)
     svg.appendChild(fillCircle)
 
