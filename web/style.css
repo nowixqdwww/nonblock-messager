@@ -3731,12 +3731,12 @@ button:active:not(:disabled) {
 }
 
 .context-menu-item:hover::before {
-    opacity: 0.12;
+    opacity: 0.32;
     transform: scale(1);
 }
 
 .context-menu-item:active::before {
-    opacity: 0.2;
+    opacity: 0.32;
     transform: scale(0.96);
     transition: opacity 0.08s, transform 0.1s ease;
 }
