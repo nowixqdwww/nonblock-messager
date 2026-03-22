@@ -3158,6 +3158,9 @@ function stopVideoStream() {
         videoStream.getTracks().forEach(t => t.stop())
         videoStream = null
     }
+    // Обязательно сбрасываем srcObject — иначе камера не выключается
+    const preview = document.getElementById('videoPreview')
+    if (preview) { preview.srcObject = null }
 }
 
 function toggleVideoRecord() {
@@ -3352,8 +3355,10 @@ async function sendVideoMessage() {
     const placeholder = document.createElement('div')
     placeholder.className = 'message me video-msg-placeholder'
     placeholder.style.cssText = 'opacity:0;transform:translateY(16px);transition:opacity 0.25s,transform 0.25s'
-    placeholder.innerHTML = `<div class="video-msg-circle sending">
-        <i class="fas fa-spinner fa-spin"></i>
+    placeholder.innerHTML = `<div class="video-msg-outer" style="position:relative;width:216px;height:216px">
+        <div style="position:absolute;inset:10px;border-radius:50%;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center">
+            <i class="fas fa-spinner fa-spin" style="font-size:28px;color:rgba(255,255,255,0.8)"></i>
+        </div>
     </div>`
     messagesDiv.appendChild(placeholder)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
@@ -3452,7 +3457,7 @@ function createVideoPlayer(url, isMe) {
 
     // Таймер
     const timeEl = document.createElement('span')
-    timeEl.style.cssText = 'position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;z-index:3'
+    timeEl.style.cssText = 'position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);white-space:nowrap;z-index:4;pointer-events:none'
     timeEl.textContent = '0:00'
 
     let playing = false
