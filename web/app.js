@@ -528,7 +528,7 @@ function closePasswordSetup() {
 
 function completeLogin() {
     loadTheme()
-    loadChatThemes()
+    loadChatThemesFromServer()
     document.getElementById('loginScreen').style.display = 'none'
     document.getElementById('app').style.display = 'flex'
     document.getElementById('sidebar').classList.add('open')
@@ -3991,12 +3991,58 @@ window.previewAccent     = previewAccent
 window.previewBubble     = previewBubble
 window.handleWallpaperUpload = handleWallpaperUpload
 
+// ── Загрузка тем чатов с сервера ────────────────────────────
+async function loadChatThemesFromServer() {
+    try {
+        const res = await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`)
+        const data = await res.json()
+        if (data.theme && Object.keys(data.theme).length) {
+            Object.entries(data.theme).forEach(([phone, theme]) => {
+                const key = `chat_theme_${currentUser}_${phone}`
+                if (!localStorage.getItem(key)) {
+                    localStorage.setItem(key, JSON.stringify(theme))
+                }
+            })
+        }
+    } catch(e) {}
+}
+
 // ============= ТЕМА ЧАТА =============
 
 let pendingChatTheme = {}
 
 function getChatThemeKey(phone) {
     return `chat_theme_${currentUser}_${phone}`
+}
+
+function applyChatTheme(theme) {
+    if (!theme) return
+    const messagesEl = document.getElementById('messages')
+    if (!messagesEl) return
+    // Обои
+    if (theme.wallpaper) {
+        applyWallpaper(theme.wallpaper)
+    } else if (currentTheme?.wallpaper) {
+        applyWallpaper(currentTheme.wallpaper)
+    } else {
+        messagesEl.style.background = ''
+        messagesEl.style.backgroundImage = ''
+        messagesEl.style.backgroundSize = ''
+    }
+    // Цвет пузырьков
+    let chatStyle = document.getElementById('chat-theme-style')
+    if (!chatStyle) {
+        chatStyle = document.createElement('style')
+        chatStyle.id = 'chat-theme-style'
+        document.head.appendChild(chatStyle)
+    }
+    if (theme.bubble) {
+        chatStyle.textContent = `.message.me:not(.me-video) { background: ${theme.bubble} !important; }`
+    } else if (currentTheme?.bubble) {
+        chatStyle.textContent = `.message.me:not(.me-video) { background: ${currentTheme.bubble} !important; }`
+    } else {
+        chatStyle.textContent = ''
+    }
 }
 
 function loadChatTheme(phone) {
@@ -4011,19 +4057,20 @@ function loadChatTheme(phone) {
 
 
 function resetChatThemeStyles() {
-    // Убираем стиль чата, применяем глобальную тему
     const chatStyle = document.getElementById('chat-theme-style')
     if (chatStyle) chatStyle.textContent = ''
     if (currentTheme?.wallpaper) applyWallpaper(currentTheme.wallpaper)
     else {
         const messagesEl = document.getElementById('messages')
-        if (messagesEl) messagesEl.style.cssText = ''
+        if (messagesEl) { messagesEl.style.background = ''; messagesEl.style.backgroundImage = '' }
     }
 }
 
 // ── Открытие модалки ─────────────────────────────────────────
 function openChatThemeModal() {
     hideContextMenus()
+    // selectedChatPhone может быть null при вызове из профиля — используем currentChat
+    if (!selectedChatPhone) selectedChatPhone = currentChat
     if (!selectedChatPhone) return
     const modal = document.getElementById('chatThemeModal')
     modal.style.display = 'flex'
@@ -4042,6 +4089,7 @@ function openChatThemeModal() {
 function closeChatThemeModal() {
     document.getElementById('chatThemeModal').style.display = 'none'
     pendingChatTheme = {}
+    // НЕ сбрасываем selectedChatPhone здесь — он нужен для loadChatTheme после закрытия
 }
 
 function renderChatBubbleSwatches() {
@@ -4139,22 +4187,62 @@ function updateChatThemePreview() {
     })
 }
 
-function saveChatTheme() {
+async function saveChatTheme() {
     if (!selectedChatPhone) return
     localStorage.setItem(getChatThemeKey(selectedChatPhone), JSON.stringify(pendingChatTheme))
-    // Применяем если это текущий чат
     if (selectedChatPhone === currentChat) {
         applyChatTheme(pendingChatTheme)
     }
+    // Сохраняем на сервер
+    try {
+        const allChatThemes = {}
+        // Собираем все сохранённые темы чатов из localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            const prefix = `chat_theme_${currentUser}_`
+            if (key && key.startsWith(prefix)) {
+                const phone = key.slice(prefix.length)
+                try { allChatThemes[phone] = JSON.parse(localStorage.getItem(key)) } catch(e) {}
+            }
+        }
+        // Убираем base64 изображения
+        Object.values(allChatThemes).forEach(t => {
+            if (t?.wallpaper?.type === 'image') t.wallpaper = { id:'custom', type:'color', value:'#1c1c1e' }
+        })
+        await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(allChatThemes)
+        })
+    } catch(e) { console.warn('saveChatTheme server error:', e) }
     showToast('Тема чата применена ✓')
     closeChatThemeModal()
+    selectedChatPhone = null
 }
 
-function resetChatTheme() {
+async function resetChatTheme() {
     if (!selectedChatPhone) return
     localStorage.removeItem(getChatThemeKey(selectedChatPhone))
     if (selectedChatPhone === currentChat) resetChatThemeStyles()
+    // Синкаем с сервером
+    try {
+        const allChatThemes = {}
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i)
+            const prefix = `chat_theme_${currentUser}_`
+            if (key && key.startsWith(prefix)) {
+                const phone = key.slice(prefix.length)
+                try { allChatThemes[phone] = JSON.parse(localStorage.getItem(key)) } catch(e) {}
+            }
+        }
+        await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(allChatThemes)
+        })
+    } catch(e) {}
     closeChatThemeModal()
+    selectedChatPhone = null
     showToast('Тема чата сброшена')
 }
 
@@ -4164,169 +4252,4 @@ window.saveChatTheme       = saveChatTheme
 window.resetChatTheme      = resetChatTheme
 window.previewChatBubble   = previewChatBubble
 window.previewChatWallpaper = previewChatWallpaper
-window.handleChatWallpaperUpload = handleChatWallpaperUpload
-
-// ============= ТЕМЫ ОТДЕЛЬНЫХ ЧАТОВ =============
-
-let chatThemes = {}  // { phone: { wallpaper: {...} } }
-let pendingChatWallpaper = null
-
-// Загружаем темы всех чатов при логине
-async function loadChatThemes() {
-    try {
-        const stored = localStorage.getItem('chatThemes_' + currentUser)
-        if (stored) chatThemes = JSON.parse(stored)
-        const res = await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`)
-        const data = await res.json()
-        if (data.theme && Object.keys(data.theme).length) {
-            chatThemes = { ...chatThemes, ...data.theme }
-            localStorage.setItem('chatThemes_' + currentUser, JSON.stringify(chatThemes))
-        }
-    } catch(e) {}
-}
-
-// Применяем тему при открытии чата
-function applyChatTheme(phone) {
-    const chatTheme = chatThemes[phone]
-    const messagesEl = document.getElementById('messages')
-    if (!messagesEl) return
-
-    // 1. Обои — сначала индивидуальные, потом глобальные, потом сброс
-    if (chatTheme?.wallpaper) {
-        applyWallpaper(chatTheme.wallpaper)
-    } else if (currentTheme?.wallpaper) {
-        applyWallpaper(currentTheme.wallpaper)
-    } else {
-        messagesEl.style.background = ''
-        messagesEl.style.backgroundImage = ''
-        messagesEl.style.backgroundSize = ''
-    }
-}
-
-// Открытие меню чата (три точки)
-function openChatMenu(e) {
-    e.stopPropagation()
-    const menu = document.getElementById('chatMenu')
-    if (menu.style.display === 'block') {
-        menu.style.display = 'none'
-        return
-    }
-    menu.style.display = 'block'
-    const close = () => { menu.style.display = 'none'; document.removeEventListener('click', close) }
-    setTimeout(() => document.addEventListener('click', close), 0)
-}
-
-// Открытие модалки темы чата
-function openChatThemeModal() {
-    document.getElementById('chatMenu').style.display = 'none'
-    const modal = document.getElementById('chatThemeModal')
-    modal.style.display = 'flex'
-    renderChatWallpaperGrid()
-    // Показываем текущую тему чата в предпросмотре
-    const theme = chatThemes[currentChat]
-    if (theme?.wallpaper) {
-        const preview = document.getElementById('chatThemePreview')
-        if (theme.wallpaper.type === 'color') preview.style.background = theme.wallpaper.value
-        else if (theme.wallpaper.type === 'gradient') preview.style.background = theme.wallpaper.value
-    }
-}
-function closeChatThemeModal() {
-    document.getElementById('chatThemeModal').style.display = 'none'
-    pendingChatWallpaper = null
-    // Применяем текущую сохранённую тему (откатываем предпросмотр)
-    applyChatTheme(currentChat)
-}
-
-function renderChatWallpaperGrid() {
-    const grid = document.getElementById('chatWallpaperGrid')
-    grid.innerHTML = ''
-    const current = chatThemes[currentChat]?.wallpaper
-    WALLPAPERS.forEach(wp => {
-        const el = document.createElement('div')
-        el.className = 'wallpaper-item' + (current?.id === wp.id ? ' active' : '')
-        el.style.background = wp.preview
-        el.innerHTML = `<span>${wp.name}</span>`
-        el.onclick = () => {
-            document.querySelectorAll('#chatWallpaperGrid .wallpaper-item').forEach(x => x.classList.remove('active'))
-            el.classList.add('active')
-            pendingChatWallpaper = { id: wp.id, type: wp.type, value: wp.value }
-            previewChatWallpaper(wp.type, wp.value)
-        }
-        grid.appendChild(el)
-    })
-}
-
-function previewChatWallpaper(type, value) {
-    pendingChatWallpaper = pendingChatWallpaper || {}
-    pendingChatWallpaper.type = type
-    pendingChatWallpaper.value = value
-    // Показываем в предпросмотре внутри модалки
-    const preview = document.getElementById('chatThemePreview')
-    if (type === 'color') { preview.style.background = value; preview.style.backgroundImage = '' }
-    else if (type === 'gradient') { preview.style.background = value; preview.style.backgroundImage = '' }
-    // И применяем в реальном чате для живого предпросмотра
-    applyWallpaper({ type, value })
-}
-
-function handleChatWallpaperUpload(input) {
-    const file = input.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = e => {
-        pendingChatWallpaper = { id: 'custom', type: 'image', value: e.target.result }
-        previewChatWallpaper('image', e.target.result)
-    }
-    reader.readAsDataURL(file)
-}
-
-async function saveChatTheme() {
-    if (!currentChat) return
-    if (pendingChatWallpaper) {
-        chatThemes[currentChat] = { wallpaper: pendingChatWallpaper }
-    }
-    loadChatTheme(currentChat)
-    localStorage.setItem('chatThemes_' + currentUser, JSON.stringify(chatThemes))
-
-    // Сохраняем на сервер (без base64 изображений)
-    try {
-        const toSave = {}
-        Object.entries(chatThemes).forEach(([phone, theme]) => {
-            const wp = theme?.wallpaper
-            if (wp?.type === 'image') toSave[phone] = { wallpaper: { id: 'custom', type: 'color', value: '#1c1c1e' } }
-            else toSave[phone] = theme
-        })
-        await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(toSave)
-        })
-    } catch(e) {}
-
-    showToast('Тема чата применена ✓')
-    closeChatThemeModal()
-}
-
-async function resetChatTheme() {
-    if (!currentChat) return
-    delete chatThemes[currentChat]
-    loadChatTheme(currentChat)
-    localStorage.setItem('chatThemes_' + currentUser, JSON.stringify(chatThemes))
-    try {
-        const toSave = { ...chatThemes }
-        await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(toSave)
-        })
-    } catch(e) {}
-    showToast('Тема чата сброшена')
-    closeChatThemeModal()
-}
-
-window.openChatMenu          = openChatMenu
-window.openChatThemeModal    = openChatThemeModal
-window.closeChatThemeModal   = closeChatThemeModal
-window.saveChatTheme         = saveChatTheme
-window.resetChatTheme        = resetChatTheme
-window.previewChatWallpaper  = previewChatWallpaper
 window.handleChatWallpaperUpload = handleChatWallpaperUpload
