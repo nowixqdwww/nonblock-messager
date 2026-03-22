@@ -3007,8 +3007,16 @@ body {
     top: 10px;
     left: 10px;
     background: #000;
+    outline: none;
+    clip-path: circle(50%);
+    -webkit-clip-path: circle(50%);
 }
 .video-playback-el { outline: none; }
+
+/* Контейнер кружка — скрываем фон до загрузки */
+.video-recorder-circle {
+    background: transparent;
+}
 
 /* SVG кольцо прогресса */
 .video-progress-ring {
