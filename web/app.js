@@ -4068,10 +4068,11 @@ function resetChatThemeStyles() {
 
 // ── Открытие модалки ─────────────────────────────────────────
 function openChatThemeModal() {
+    // Сохраняем телефон ДО hideContextMenus который сбрасывает selectedChatPhone
+    const phone = selectedChatPhone || currentChat
     hideContextMenus()
-    // selectedChatPhone может быть null при вызове из профиля — используем currentChat
-    if (!selectedChatPhone) selectedChatPhone = currentChat
-    if (!selectedChatPhone) return
+    if (!phone) return
+    selectedChatPhone = phone
     const modal = document.getElementById('chatThemeModal')
     modal.style.display = 'flex'
 
