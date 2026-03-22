@@ -3168,6 +3168,12 @@ function stopVideoStream() {
         videoStream.getTracks().forEach(t => t.stop())
         videoStream = null
     }
+    // Обязательно очищаем srcObject — иначе камера не выключается
+    const preview = document.getElementById('videoPreview')
+    if (preview) {
+        preview.srcObject = null
+        preview.load()
+    }
 }
 
 function toggleVideoRecord() {
