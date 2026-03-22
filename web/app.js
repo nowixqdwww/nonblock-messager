@@ -3474,7 +3474,7 @@ function createVideoPlayer(url, isMe) {
 
     // Таймер
     const timeEl = document.createElement('span')
-    timeEl.style.cssText = 'position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:11px;color:rgba(255,255,255,0.7);white-space:nowrap;z-index:3'
+    timeEl.style.cssText = 'position:absolute;bottom:18px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:white;text-shadow:0 1px 3px rgba(0,0,0,0.8);white-space:nowrap;z-index:4;pointer-events:none'
     timeEl.textContent = '0:00'
 
     let playing = false
