@@ -2457,7 +2457,6 @@ function hideContextMenus() {
     selectedMessageElement = null
     selectedMessageText = null
     selectedMessageSender = null
-    selectedChatPhone = null
     selectedChatElement = null
 }
 
