@@ -548,6 +548,30 @@
             </div>
 
             <div class="settings-section">
+                <h3><i class="fas fa-palette"></i> Внешний вид</h3>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Тема оформления</div>
+                        <div class="settings-item-description">Цвета интерфейса</div>
+                    </div>
+                    <button class="settings-button" onclick="openThemeModal()">
+                        <i class="fas fa-swatchbook"></i> Изменить
+                    </button>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Обои чата</div>
+                        <div class="settings-item-description">Фон области сообщений</div>
+                    </div>
+                    <button class="settings-button" onclick="openWallpaperModal()">
+                        <i class="fas fa-image"></i> Изменить
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-section">
                 <h3><i class="fas fa-database"></i> Данные и хранилище</h3>
                 
                 <div class="settings-item">
@@ -684,6 +708,9 @@
 
 <!-- Контекстное меню для чатов -->
 <div id="chatContextMenu" class="context-menu" style="display: none;">
+    <div class="context-menu-item" onclick="openChatThemeModal()">
+        <i class="fas fa-palette"></i> Тема чата
+    </div>
     <div class="context-menu-item delete" onclick="deleteChat()">
         <i class="fas fa-trash-alt"></i> Удалить чат
     </div>
@@ -725,5 +752,133 @@
 <!-- Скрипты -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script src="/app.js?v=2"></script>
+<!-- Модалка тем -->
+<div id="themeModal" class="modal" style="display:none;">
+    <div class="modal-content theme-modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-palette"></i> Тема оформления</h3>
+            <button onclick="closeThemeModal()" class="modal-close-btn"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="theme-modal-body">
+
+            <!-- Готовые темы -->
+            <div class="theme-section-title">Готовые темы</div>
+            <div class="theme-presets" id="themePresets"></div>
+
+            <!-- Акцентный цвет -->
+            <div class="theme-section-title" style="margin-top:20px">Акцентный цвет</div>
+            <div class="theme-accent-row">
+                <div class="accent-swatches" id="accentSwatches"></div>
+                <div class="accent-custom">
+                    <input type="color" id="accentColorPicker" value="#0A84FF" oninput="previewAccent(this.value)">
+                    <span>Свой цвет</span>
+                </div>
+            </div>
+
+            <!-- Пузырьки сообщений -->
+            <div class="theme-section-title" style="margin-top:20px">Цвет сообщений</div>
+            <div class="theme-bubble-row">
+                <div>
+                    <div class="theme-label">Мои сообщения</div>
+                    <div class="bubble-swatches" id="myBubbleSwatches"></div>
+                    <input type="color" id="myBubblePicker" oninput="previewBubble('me', this.value)">
+                </div>
+            </div>
+
+            <!-- Предпросмотр -->
+            <div class="theme-section-title" style="margin-top:20px">Предпросмотр</div>
+            <div class="theme-preview-chat" id="themePreviewChat">
+                <div class="theme-preview-msg other">Привет! Как дела?</div>
+                <div class="theme-preview-msg me">Отлично, спасибо!</div>
+                <div class="theme-preview-msg other">Что делаешь?</div>
+                <div class="theme-preview-msg me">Настраиваю тему 😊</div>
+            </div>
+
+            <button class="theme-save-btn" onclick="saveTheme()">
+                <i class="fas fa-check"></i> Применить тему
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка обоев -->
+<div id="wallpaperModal" class="modal" style="display:none;">
+    <div class="modal-content theme-modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-image"></i> Обои чата</h3>
+            <button onclick="closeWallpaperModal()" class="modal-close-btn"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="theme-modal-body">
+            <div class="theme-section-title">Готовые обои</div>
+            <div class="wallpaper-grid" id="wallpaperGrid"></div>
+
+            <div class="theme-section-title" style="margin-top:20px">Свой цвет фона</div>
+            <div class="accent-custom">
+                <input type="color" id="wallpaperColorPicker" value="#f2f2f7" oninput="previewWallpaper('color', this.value)">
+                <span>Выбрать цвет</span>
+            </div>
+
+            <div class="theme-section-title" style="margin-top:16px">Загрузить изображение</div>
+            <label class="wallpaper-upload-btn">
+                <i class="fas fa-upload"></i> Выбрать файл
+                <input type="file" accept="image/*" onchange="handleWallpaperUpload(this)" style="display:none">
+            </label>
+
+            <button class="theme-save-btn" onclick="saveWallpaper()">
+                <i class="fas fa-check"></i> Применить обои
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Тема чата -->
+<div id="chatThemeModal" class="modal" style="display:none;">
+    <div class="modal-content theme-modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-palette"></i> Тема чата</h3>
+            <button onclick="closeChatThemeModal()" class="modal-close-btn"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="theme-modal-body">
+
+            <div class="theme-section-title">Цвет пузырьков</div>
+            <div class="accent-swatches" id="chatBubbleSwatches"></div>
+            <div class="accent-custom" style="margin-top:8px">
+                <input type="color" id="chatBubblePicker" oninput="previewChatBubble(this.value)">
+                <span>Свой цвет</span>
+            </div>
+
+            <div class="theme-section-title" style="margin-top:20px">Обои чата</div>
+            <div class="wallpaper-grid" id="chatWallpaperGrid"></div>
+            <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                <div class="accent-custom">
+                    <input type="color" id="chatWallpaperColorPicker" value="#f2f2f7" oninput="previewChatWallpaper('color', this.value)">
+                    <span>Свой цвет</span>
+                </div>
+                <label class="wallpaper-upload-btn">
+                    <i class="fas fa-image"></i> Загрузить фото
+                    <input type="file" accept="image/*" onchange="handleChatWallpaperUpload(this)" style="display:none">
+                </label>
+            </div>
+
+            <div class="theme-section-title" style="margin-top:20px">Предпросмотр</div>
+            <div class="theme-preview-chat" id="chatThemePreview">
+                <div class="theme-preview-msg other">Привет!</div>
+                <div class="theme-preview-msg me" id="chatPreviewMsg">Привет 👋</div>
+                <div class="theme-preview-msg other">Как дела?</div>
+                <div class="theme-preview-msg me" id="chatPreviewMsg2">Отлично!</div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:20px">
+                <button class="theme-save-btn" style="background:#ff3b30;flex:0 0 auto;width:auto;padding:14px 20px" onclick="resetChatTheme()">
+                    <i class="fas fa-rotate-left"></i> Сбросить
+                </button>
+                <button class="theme-save-btn" style="flex:1" onclick="saveChatTheme()">
+                    <i class="fas fa-check"></i> Применить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
