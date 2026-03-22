@@ -508,6 +508,46 @@
             </div>
 
             <div class="settings-section">
+                <h3><i class="fas fa-video"></i> Камера</h3>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Камера</div>
+                        <div class="settings-item-description">Фронтальная или задняя</div>
+                    </div>
+                    <select id="cameraFacing" class="settings-select" onchange="saveCameraSettings()">
+                        <option value="user">Фронтальная</option>
+                        <option value="environment">Задняя</option>
+                    </select>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Качество видео</div>
+                        <div class="settings-item-description">Разрешение записи</div>
+                    </div>
+                    <select id="cameraQuality" class="settings-select" onchange="saveCameraSettings()">
+                        <option value="360">360p (лёгкое)</option>
+                        <option value="480" selected>480p (стандарт)</option>
+                        <option value="720">720p (HD)</option>
+                    </select>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Максимальная длина</div>
+                        <div class="settings-item-description">Ограничение записи</div>
+                    </div>
+                    <select id="videoMaxDur" class="settings-select" onchange="saveCameraSettings()">
+                        <option value="15">15 секунд</option>
+                        <option value="30">30 секунд</option>
+                        <option value="60" selected>1 минута</option>
+                        <option value="180">3 минуты</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-section">
                 <h3><i class="fas fa-database"></i> Данные и хранилище</h3>
                 
                 <div class="settings-item">
