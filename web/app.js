@@ -1,6 +1,7 @@
 let ws
 let currentUser = null
 let currentChat = null
+let videoMaxDuration = 60  // секунд
 let reconnectAttempts = 0
 const maxReconnectAttempts = 10
 let currentUserProfile = null
@@ -3108,7 +3109,6 @@ let videoRecorder = null
 let videoChunks = []
 let videoStartTime = null
 let videoTimer = null
-let videoMaxDuration = 60  // секунд
 let videoBlob = null
 
 async function openVideoRecorder() {
