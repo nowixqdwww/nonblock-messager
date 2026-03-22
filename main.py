@@ -200,6 +200,16 @@ async def init_db():
             )
         """)
 
+        # Таблица настроек темы
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS theme_settings (
+                phone TEXT PRIMARY KEY,
+                theme_data JSONB NOT NULL DEFAULT '{}',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
+            )
+        """)
+
         # Таблица реакций
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS reactions (
@@ -945,7 +955,8 @@ async def upload_video(request: Request):
         logger.info(f"Video upload: sender={sender} size={len(body)} duration={duration}s id={row['id']}")
         return {"ok": True, "video_id": row["id"]}
     except Exception as e:
-        logger.error(f"video upload error: {e}")
+        import traceback
+        logger.error(f"video upload error: {e}\n{traceback.format_exc()}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/video/{video_id}")
@@ -969,6 +980,36 @@ async def get_video(video_id: int):
             headers={"Cache-Control": "public, max-age=86400", "Accept-Ranges": "bytes", "Content-Length": str(len(data))}
         )
     except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ============= ТЕМЫ =============
+
+@app.get("/api/theme/{phone}")
+async def get_theme(phone: str):
+    try:
+        conn = await get_db()
+        row = await conn.fetchrow("SELECT theme_data FROM theme_settings WHERE phone = $1", phone)
+        await conn.close()
+        return {"theme": dict(row["theme_data"]) if row else {}}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/theme/{phone}")
+async def save_theme(phone: str, request: Request):
+    try:
+        data = await request.json()
+        import json as _json2
+        conn = await get_db()
+        await conn.execute("""
+            INSERT INTO theme_settings (phone, theme_data, updated_at)
+            VALUES ($1, $2::jsonb, NOW())
+            ON CONFLICT (phone) DO UPDATE
+            SET theme_data = $2::jsonb, updated_at = NOW()
+        """, phone, _json2.dumps(data))
+        await conn.close()
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"save_theme error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/search")
