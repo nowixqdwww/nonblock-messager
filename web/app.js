@@ -4200,6 +4200,7 @@ function updateChatThemePreview() {
 }
 
 async function saveChatTheme() {
+    alert('saveChatTheme: selectedChatPhone=' + selectedChatPhone + ' currentChat=' + currentChat + ' pending=' + JSON.stringify(pendingChatTheme).slice(0,100))
     if (!selectedChatPhone) return
     localStorage.setItem(getChatThemeKey(selectedChatPhone), JSON.stringify(pendingChatTheme))
     if (selectedChatPhone === currentChat) {
