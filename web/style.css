@@ -1757,7 +1757,7 @@ body {
 .context-menu-item {
     padding: 12px 20px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: 
     color: #333;
     font-size: 14px;
     display: flex;
@@ -1771,17 +1771,11 @@ body {
     font-size: 16px;
 }
 
-.context-menu-item:hover {
-    background: #f5f5f5;
-}
 
 .context-menu-item.delete {
     color: #f87171;
 }
 
-.context-menu-item.delete:hover {
-    background: #fee2e2;
-}
 
 /* Toast уведомления */
 .toast {
