@@ -147,6 +147,22 @@
                     <button class="action-btn" onclick="openChatProfile()">
                         <i class="fas fa-user"></i>
                     </button>
+                    <button class="action-btn" onclick="openChatMenu(event)" id="chatMenuBtn">
+                        <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
+                </div>
+
+                <!-- Выпадающее меню чата -->
+                <div id="chatMenu" class="chat-dropdown-menu" style="display:none;">
+                    <div class="chat-menu-item" onclick="openChatThemeModal()">
+                        <i class="fas fa-palette"></i> Тема чата
+                    </div>
+                    <div class="chat-menu-item" onclick="openChatProfile()">
+                        <i class="fas fa-user"></i> Профиль
+                    </div>
+                    <div class="chat-menu-item danger" onclick="clearChat()">
+                        <i class="fas fa-eraser"></i> Очистить историю
+                    </div>
                 </div>
             </div>
 
@@ -319,9 +335,25 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>Профиль</h2>
-            <button class="close-btn" onclick="closeModal()">
-                <i class="fas fa-times"></i>
-            </button>
+            <div style="display:flex;align-items:center;gap:6px">
+                <!-- Три точки — только для профиля собеседника -->
+                <div style="position:relative">
+                    <button class="close-btn" id="profileMenuBtn" style="display:none" onclick="toggleProfileMenu(event)">
+                        <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
+                    <div id="profileDropdownMenu" class="context-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);min-width:200px">
+                        <div class="context-menu-item" onclick="openChatThemeFromProfile()">
+                            🎨 Тема чата
+                        </div>
+                        <div class="context-menu-item delete" onclick="blockFromProfile()">
+                            <i class="fas fa-ban"></i> Заблокировать
+                        </div>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
         </div>
         <div class="modal-body">
             <!-- Просмотр профиля -->
@@ -876,6 +908,47 @@
                     <i class="fas fa-check"></i> Применить
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Тема конкретного чата -->
+<div id="chatThemeModal" class="modal" style="display:none;">
+    <div class="modal-content theme-modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-palette"></i> Тема чата</h3>
+            <button onclick="closeChatThemeModal()" class="modal-close-btn"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="theme-modal-body">
+            <div class="theme-section-title">Обои чата</div>
+            <div class="wallpaper-grid" id="chatWallpaperGrid"></div>
+
+            <div class="theme-section-title" style="margin-top:16px">Свой цвет фона</div>
+            <div class="accent-custom">
+                <input type="color" id="chatWallpaperColor" value="#f2f2f7" oninput="previewChatWallpaper('color',this.value)">
+                <span>Выбрать цвет</span>
+            </div>
+
+            <div class="theme-section-title" style="margin-top:16px">Загрузить изображение</div>
+            <label class="wallpaper-upload-btn">
+                <i class="fas fa-upload"></i> Выбрать файл
+                <input type="file" accept="image/*" onchange="handleChatWallpaperUpload(this)" style="display:none">
+            </label>
+
+            <div class="theme-section-title" style="margin-top:20px">Предпросмотр</div>
+            <div class="theme-preview-chat" id="chatThemePreview" style="min-height:120px">
+                <div class="theme-preview-msg other">Привет!</div>
+                <div class="theme-preview-msg me">Привет 👋</div>
+                <div class="theme-preview-msg other">Как дела?</div>
+                <div class="theme-preview-msg me">Отлично!</div>
+            </div>
+
+            <button class="theme-save-btn" onclick="saveChatTheme()">
+                <i class="fas fa-check"></i> Применить
+            </button>
+            <button class="theme-save-btn" style="margin-top:8px;background:rgba(255,59,48,0.15);color:#FF3B30" onclick="resetChatTheme()">
+                <i class="fas fa-xmark"></i> Сбросить тему чата
+            </button>
         </div>
     </div>
 </div>
