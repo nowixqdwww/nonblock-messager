@@ -49,6 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
+JAMENDO_CLIENT_ID = os.getenv("JAMENDO_CLIENT_ID", "")  # Получить на developer.jamendo.com
 TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
@@ -205,6 +206,22 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS theme_settings (
                 phone TEXT PRIMARY KEY,
                 theme_data JSONB NOT NULL DEFAULT '{}',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
+            )
+        """)
+
+        # Таблица музыкального статуса
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS music_status (
+                phone TEXT PRIMARY KEY,
+                track_id TEXT,
+                track_name TEXT,
+                artist_name TEXT,
+                cover_url TEXT,
+                preview_url TEXT,
+                jamendo_url TEXT,
+                is_playing BOOLEAN DEFAULT FALSE,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
             )
@@ -1010,6 +1027,103 @@ async def save_theme(phone: str, request: Request):
         return {"ok": True}
     except Exception as e:
         logger.error(f"save_theme error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ============= JAMENDO МУЗЫКА =============
+
+@app.get("/api/jamendo/search")
+async def jamendo_search(q: str = "", limit: int = 20, offset: int = 0):
+    """Поиск треков через Jamendo API."""
+    if not JAMENDO_CLIENT_ID:
+        return JSONResponse(status_code=503, content={"error": "Jamendo не настроен"})
+    try:
+        import urllib.request, urllib.parse, json as _j
+        params = urllib.parse.urlencode({
+            "client_id": JAMENDO_CLIENT_ID,
+            "format": "json",
+            "limit": limit,
+            "offset": offset,
+            "search": q,
+            "imagesize": "200",
+            "audioformat": "mp32",
+            "include": "musicinfo",
+            "groupby": "artist_id",
+        })
+        url = f"https://api.jamendo.com/v3.0/tracks/?{params}"
+        with urllib.request.urlopen(url, timeout=8) as r:
+            data = _j.loads(r.read())
+        return {"ok": True, "tracks": data.get("results", []), "total": data.get("headers", {}).get("results_count", 0)}
+    except Exception as e:
+        logger.error(f"Jamendo search error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/jamendo/trending")
+async def jamendo_trending(limit: int = 20):
+    """Популярные треки."""
+    if not JAMENDO_CLIENT_ID:
+        return JSONResponse(status_code=503, content={"error": "Jamendo не настроен"})
+    try:
+        import urllib.request, urllib.parse, json as _j
+        params = urllib.parse.urlencode({
+            "client_id": JAMENDO_CLIENT_ID,
+            "format": "json",
+            "limit": limit,
+            "boost": "popularity_week",
+            "imagesize": "200",
+            "audioformat": "mp32",
+        })
+        url = f"https://api.jamendo.com/v3.0/tracks/?{params}"
+        with urllib.request.urlopen(url, timeout=8) as r:
+            data = _j.loads(r.read())
+        return {"ok": True, "tracks": data.get("results", [])}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/music-status/{phone}")
+async def set_music_status(phone: str, request: Request):
+    """Установить статус 'слушает' для пользователя."""
+    try:
+        data = await request.json()
+        conn = await get_db()
+        await conn.execute("""
+            INSERT INTO music_status (phone, track_id, track_name, artist_name, cover_url, preview_url, jamendo_url, is_playing, updated_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+            ON CONFLICT (phone) DO UPDATE SET
+                track_id=$2, track_name=$3, artist_name=$4, cover_url=$5,
+                preview_url=$6, jamendo_url=$7, is_playing=$8, updated_at=NOW()
+        """, phone,
+            data.get("track_id",""), data.get("track_name",""),
+            data.get("artist_name",""), data.get("cover_url",""),
+            data.get("preview_url",""), data.get("jamendo_url",""),
+            data.get("is_playing", False))
+        await conn.close()
+
+        # Уведомляем подписчиков через WS
+        for uid, ws in list(clients.items()):
+            try:
+                import json as _j2
+                await ws.send_text(_j2.dumps({
+                    "action": "music_status",
+                    "phone": phone,
+                    **data
+                }))
+            except Exception:
+                pass
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/music-status/{phone}")
+async def get_music_status(phone: str):
+    """Получить музыкальный статус пользователя."""
+    try:
+        conn = await get_db()
+        row = await conn.fetchrow("SELECT * FROM music_status WHERE phone=$1", phone)
+        await conn.close()
+        if not row:
+            return {"status": None}
+        return {"status": dict(row)}
+    except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/search")
