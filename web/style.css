@@ -3768,3 +3768,287 @@ button:active:not(:disabled) {
     position: relative;
     z-index: 1;
 }
+/* ══════════════════════════════════════════
+   Jamendo Music Player
+══════════════════════════════════════════ */
+
+/* Кнопка музыки */
+#musicBtn { color: var(--accent); }
+
+/* Модалка плеера */
+.music-player-content {
+    width: 92%;
+    max-width: 460px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 24px;
+    overflow: hidden;
+}
+.music-player-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+}
+
+/* Поиск */
+.music-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.music-search-bar i { color: var(--text-secondary); font-size: 14px; }
+.music-search-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 15px;
+    color: var(--text-primary);
+}
+.music-search-bar button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+}
+
+/* Текущий трек */
+.music-now-playing {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.music-now-playing img {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.music-now-info { flex: 1; min-width: 0; }
+.music-track-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-artist-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-controls { display: flex; gap: 8px; }
+.music-controls button {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s var(--spring, ease), opacity 0.15s;
+}
+.music-controls button:last-child {
+    background: var(--bg-primary);
+    color: var(--accent);
+}
+.music-controls button:active { transform: scale(0.88); }
+
+/* Прогресс */
+.music-progress {
+    padding: 8px 16px 4px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.music-progress-bar {
+    height: 4px;
+    background: var(--bg-primary);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+.music-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.3s linear;
+}
+.music-progress-times {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Список треков */
+.music-track-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.music-track-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    position: relative;
+}
+.music-track-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 0.18s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.music-track-item:hover::before { opacity: 0.06; transform: scale(1); }
+.music-track-item.active { background: rgba(10,132,255,0.06); }
+.music-track-item.active .music-track-title { color: var(--accent); }
+.music-track-cover {
+    width: 42px; height: 42px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--bg-primary);
+}
+.music-track-info { flex: 1; min-width: 0; }
+.music-track-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-track-artist {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-track-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+.music-mini-btn {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-primary);
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.12s var(--spring, ease), background 0.15s;
+}
+.music-mini-btn:active { transform: scale(0.88); background: var(--accent); color: white; }
+.music-loading {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+    gap: 8px;
+    justify-content: center;
+}
+
+/* Карточка музыки в чате */
+.music-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    max-width: 280px;
+    min-width: 200px;
+    position: relative;
+}
+.music-card.me {
+    background: var(--bubble-me, var(--accent));
+    color: white;
+    border-radius: 16px 16px 4px 16px;
+    margin-left: auto;
+}
+.music-card.other {
+    background: white;
+    color: var(--text-primary);
+    border-radius: 16px 16px 16px 4px;
+    box-shadow: var(--shadow-sm);
+}
+.music-card-cover {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.music-card-info { flex: 1; min-width: 0; }
+.music-card-name {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-card-artist {
+    font-size: 11px;
+    opacity: 0.75;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.music-card-label {
+    font-size: 10px;
+    opacity: 0.5;
+    margin-top: 4px;
+}
+.music-card-play {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.25);
+    color: inherit;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.12s var(--spring, ease);
+}
+.music-card.other .music-card-play {
+    background: var(--accent);
+    color: white;
+}
+.music-card-play:active { transform: scale(0.88); }
