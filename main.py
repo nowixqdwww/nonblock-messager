@@ -50,7 +50,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
 JAMENDO_CLIENT_ID = os.getenv("JAMENDO_CLIENT_ID", "")  # Получить на developer.jamendo.com
-TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
+TG_BOT_TOKEN = os.getenv("TOKEN", "")
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
