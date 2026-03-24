@@ -174,6 +174,9 @@
 
                 <!-- Обычная строка ввода -->
                 <div class="input-area" id="inputArea">
+                    <button class="sticker-btn" id="musicBtn" onclick="openMusicPlayer()" title="Музыка">
+                        <i class="fas fa-music"></i>
+                    </button>
                     <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
                         <i class="fas fa-face-smile"></i>
                     </button>
@@ -914,5 +917,53 @@
 
 
 
+<!-- Музыкальный плеер Jamendo -->
+<div id="musicPlayerModal" class="modal" style="display:none;">
+    <div class="modal-content music-player-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-music"></i> Jamendo Music</h3>
+            <button onclick="closeMusicPlayer()" class="modal-close-btn"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="music-player-body">
+            <!-- Поиск -->
+            <div class="music-search-bar">
+                <i class="fas fa-search"></i>
+                <input id="musicSearchInput" placeholder="Поиск музыки..." oninput="onMusicSearch(this.value)">
+                <button id="musicSearchClear" onclick="clearMusicSearch()" style="display:none"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <!-- Текущий трек -->
+            <div id="musicNowPlaying" class="music-now-playing" style="display:none">
+                <img id="musicCover" src="" alt="">
+                <div class="music-now-info">
+                    <div id="musicTrackName" class="music-track-name"></div>
+                    <div id="musicArtistName" class="music-artist-name"></div>
+                </div>
+                <div class="music-controls">
+                    <button id="musicPlayBtn" onclick="toggleMusicPlay()"><i class="fas fa-play"></i></button>
+                    <button onclick="shareMusicTrack()" title="Поделиться в чат"><i class="fas fa-share"></i></button>
+                </div>
+            </div>
+
+            <!-- Прогресс -->
+            <div id="musicProgress" class="music-progress" style="display:none">
+                <div class="music-progress-bar" id="musicProgressBar" onclick="seekMusic(event)">
+                    <div class="music-progress-fill" id="musicProgressFill"></div>
+                </div>
+                <div class="music-progress-times">
+                    <span id="musicCurrentTime">0:00</span>
+                    <span id="musicDuration">0:00</span>
+                </div>
+            </div>
+
+            <!-- Список треков -->
+            <div id="musicTrackList" class="music-track-list"></div>
+            <div id="musicLoading" class="music-loading" style="display:none">
+                <i class="fas fa-spinner fa-spin"></i> Загрузка...
+            </div>
+        </div>
+    </div>
+</div>
+<audio id="jamendoAudio" preload="none"></audio>
 </body>
 </html>
