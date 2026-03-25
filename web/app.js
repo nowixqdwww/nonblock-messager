@@ -1239,7 +1239,14 @@ function addMessage(user, text, messageId = null, isRead = false) {
         const fwdMatch = text.match(/^\[FWD:(.+?)\]([\s\S]*?)\[\/FWD\]$/)
         let bodyHtml
         if (fwdMatch) {
-            bodyHtml = `<div class="fwd-header"><i class="fas fa-share"></i> Переслано от <b>${escapeHtml(fwdMatch[1])}</b></div>
+            const fwdMeta = fwdMatch[1]  // "имя|телефон" или просто "имя"
+            const pipeIdx = fwdMeta.lastIndexOf('|')
+            const fwdName  = pipeIdx >= 0 ? fwdMeta.slice(0, pipeIdx) : fwdMeta
+            const fwdPhone = pipeIdx >= 0 ? fwdMeta.slice(pipeIdx + 1) : null
+            const nameHtml = fwdPhone
+                ? `<span class="fwd-name-link" onclick="showUserProfile('${escapeHtml(fwdPhone)}',false)" title="Открыть профиль">${escapeHtml(fwdName)}</span>`
+                : `<b>${escapeHtml(fwdName)}</b>`
+            bodyHtml = `<div class="fwd-header"><i class="fas fa-share"></i> Переслано от ${nameHtml}</div>
                         <div class="message-text">${escapeHtml(fwdMatch[2])}</div>`
         } else {
             bodyHtml = `<div class="message-text">${escapeHtml(text)}</div>`
@@ -2575,15 +2582,16 @@ function closeForwardModal() {
 
 function sendForwarded(toPhone, text, originalSender) {
     if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения'); return }
-    // Стикеры и видео пересылаем как есть, обычные сообщения — с пометкой
     let fwdText
     if (text.startsWith('[STICKER]') || text.startsWith('[VIDEO')) {
-        fwdText = text  // стикер без обёртки FWD
+        fwdText = text
     } else {
+        // Формат: [FWD:имя|телефон]текст[/FWD]
+        const senderPhone = originalSender || currentUser
         const senderName = originalSender === currentUser
             ? (currentUserProfile?.name || currentUserProfile?.username || currentUser)
             : originalSender
-        fwdText = `[FWD:${senderName}]${text}[/FWD]`
+        fwdText = `[FWD:${senderName}|${senderPhone}]${text}[/FWD]`
     }
     ws.send(JSON.stringify({ action: 'send', to: toPhone, text: fwdText }))
     // Не добавляем вручную — message_sent от сервера добавит само
@@ -4364,11 +4372,12 @@ function renderTrackList(tracks) {
     tracks.forEach((t, i) => {
         const el = document.createElement('div')
         el.className = 'music-track-item' + (currentTrack?.id === t.id ? ' active' : '')
+        const dur = t.duration ? `${Math.floor(t.duration/60)}:${(t.duration%60).toString().padStart(2,'0')}` : '0:30'
         el.innerHTML = `
             <img src="${t.image || ''}" onerror="this.style.display='none'" class="music-track-cover">
             <div class="music-track-info">
                 <div class="music-track-title">${escapeHtml(t.name)}</div>
-                <div class="music-track-artist">${escapeHtml(t.artist_name)}</div>
+                <div class="music-track-artist">${escapeHtml(t.artist_name)} · <span style="opacity:0.7">${dur}</span></div>
             </div>
             <div class="music-track-actions">
                 <button class="music-mini-btn" onclick="playTrack(${i})" title="Играть">
@@ -4473,7 +4482,8 @@ function shareMusicTrackObj(track) {
         artist: track.artist_name,
         cover: track.image,
         audio: track.audio,
-        url: track.shareurl
+        url: track.shareurl,
+        duration: track.duration || 0
     })}[/MUSIC]`
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ action: 'send', to: currentChat, text: msg }))
@@ -4496,6 +4506,7 @@ async function updateMusicStatus(track, isPlaying) {
                 cover_url: track.image || '',
                 preview_url: track.audio || '',
                 jamendo_url: track.shareurl || '',
+                duration: track.duration || 0,
                 is_playing: isPlaying
             })
         })
@@ -4515,7 +4526,7 @@ function createMusicCard(data, isMe) {
         <div class="music-card-info">
             <div class="music-card-name">${escapeHtml(data.name)}</div>
             <div class="music-card-artist">${escapeHtml(data.artist)}</div>
-            <div class="music-card-label">Jamendo · CC</div>
+            <div class="music-card-label">Deezer · 30 сек превью</div>
         </div>
         <button class="music-card-play"><i class="fas fa-play"></i></button>`
 
