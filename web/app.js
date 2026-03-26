@@ -400,14 +400,27 @@ async function register() {
 
         const data = await res.json()
 
-        if (data.error) {
-            showToast(data.error)
+        if (!res.ok || data.error) {
+            showToast(data.error || 'Ошибка регистрации')
             return
         }
 
-        showToast('Регистрация успешна! Теперь войдите')
-        showLoginForm()
-        document.getElementById('loginPhone').value = cleanPhone
+        // Автологин
+        showToast('Регистрация успешна!')
+        const loginRes = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: cleanPhone, password })
+        })
+        const loginData = await loginRes.json()
+        if (loginRes.ok && !loginData.error) {
+            currentUser = loginData.phone
+            completeLogin()
+        } else {
+            showLoginForm()
+            document.getElementById('loginPhone').value = cleanPhone
+            showToast('Войдите в аккаунт')
+        }
 
     } catch (error) {
         console.error('Register error:', error)
@@ -1231,8 +1244,11 @@ function addMessage(user, text, messageId = null, isRead = false) {
         if (messageId) div.dataset.messageId = messageId
 
         const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        // isRead=null → отправляется (1 галочка), isRead=false → доставлено (2 серых), isRead=true → прочитано (2 синих)
         const ticks = isMe
-            ? `<span class="msg-ticks${isRead ? ' read' : ''}">✓✓</span>`
+            ? `<span class="msg-ticks${isRead === true ? ' read' : ''}">
+                <i class="fas fa-check tick-first"></i><i class="fas fa-check tick-second" style="${isRead === null ? 'display:none' : ''}"></i>
+               </span>`
             : ''
 
         // Пересланное сообщение
@@ -2336,6 +2352,10 @@ function openChat(phone, displayName) {
     if (currentChat === phone) return
     
     currentChat = phone
+    // Если чата нет в списке — добавляем сразу
+    if (!document.getElementById(`chat-${cleanPhone(phone)}`)) {
+        createChatElement({ phone, displayName, name: displayName, last: '', unread: 0 })
+    }
     // Применяем тему этого чата
     loadChatTheme(phone)
     
@@ -2705,7 +2725,13 @@ function connect() {
             }
 
             if (data.action === 'message_sent') {
-                addMessage(currentUser, data.text, data.id, false)
+                // null = отправлено (1 галочка), false = доставлено (2 серых)
+                addMessage(currentUser, data.text, data.id, null)
+                // Если получатель онлайн — сразу 2 галочки
+                if (data.delivered) {
+                    const el = document.querySelector(`[data-message-id="${data.id}"] .msg-ticks .tick-second`)
+                    if (el) el.style.display = ''
+                }
             }
 
             if (data.action === 'history') {
