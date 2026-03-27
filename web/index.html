@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Empathy Send</title>
+    <title>NonBlock Messenger</title>
     <link rel="stylesheet" href="/style.css">
     <!-- Cropper.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
@@ -18,7 +18,7 @@
 <!-- Экран входа -->
 <div id="loginScreen">
     <div class="login-container">
-        <h1>Empathy</h1>
+        <h1>NonBlock</h1>
         <p>Введите номер телефона и пароль</p>
         <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
         <input id="loginPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;">
@@ -27,7 +27,7 @@
         </button>
         <p style="margin-top: 20px; color: #666;">
             Нет аккаунта? 
-            <a href="#" onclick="showRegisterForm()" style="color: #FFFFFF;">Зарегистрироваться</a>
+            <a href="#" onclick="showRegisterForm()" style="color: #0A84FF;">Зарегистрироваться</a>
         </p>
     </div>
 </div>
@@ -73,7 +73,7 @@
             <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">
                 <i class="fas fa-bars"></i>
             </button>
-            <h3>Empathy</h3>
+            <h3>NonBlock</h3>
             <div class="header-actions">
                 <button class="settings-btn" onclick="openSettings()">
                     <i class="fas fa-cog"></i>
@@ -174,20 +174,17 @@
 
                 <!-- Обычная строка ввода -->
                 <div class="input-area" id="inputArea">
-                    <button class="sticker-btn" id="musicBtn" onclick="openMusicPlayer()" title="Музыка">
-                        <i class="fas fa-music"></i>
-                    </button>
                     <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
                         <i class="fas fa-face-smile"></i>
                     </button>
                     <input id="text" placeholder="Напишите сообщение..." class="message-input">
-                    <button class="voice-btn" id="voiceBtn">
+                    <button class="voice-btn input-btn-animated btn-visible" id="voiceBtn">
                         <i class="fas fa-microphone"></i>
                     </button>
-                    <button class="video-msg-btn" id="videomsgBtn" title="Видео сообщение" onclick="openVideoRecorder()">
+                    <button class="video-msg-btn input-btn-animated btn-visible" id="videomsgBtn" title="Видео сообщение" onclick="openVideoRecorder()">
                         <i class="fas fa-video"></i>
                     </button>
-                    <button onclick="send()" class="send-btn" id="sendBtn" style="display:none;">
+                    <button onclick="send()" class="send-btn input-btn-animated btn-hidden" id="sendBtn">
                         <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
@@ -917,53 +914,6 @@
 
 
 
-<!-- Музыкальный плеер Jamendo -->
-<div id="musicPlayerModal" class="modal" style="display:none;">
-    <div class="modal-content music-player-content">
-        <div class="modal-header">
-            <h3><i class="fas fa-music"></i> Jamendo Music</h3>
-            <button onclick="closeMusicPlayer()" class="modal-close-btn"><i class="fas fa-xmark"></i></button>
-        </div>
-        <div class="music-player-body">
-            <!-- Поиск -->
-            <div class="music-search-bar">
-                <i class="fas fa-search"></i>
-                <input id="musicSearchInput" placeholder="Поиск музыки..." oninput="onMusicSearch(this.value)">
-                <button id="musicSearchClear" onclick="clearMusicSearch()" style="display:none"><i class="fas fa-xmark"></i></button>
-            </div>
 
-            <!-- Текущий трек -->
-            <div id="musicNowPlaying" class="music-now-playing" style="display:none">
-                <img id="musicCover" src="" alt="">
-                <div class="music-now-info">
-                    <div id="musicTrackName" class="music-track-name"></div>
-                    <div id="musicArtistName" class="music-artist-name"></div>
-                </div>
-                <div class="music-controls">
-                    <button id="musicPlayBtn" onclick="toggleMusicPlay()"><i class="fas fa-play"></i></button>
-                    <button onclick="shareMusicTrack()" title="Поделиться в чат"><i class="fas fa-share"></i></button>
-                </div>
-            </div>
-
-            <!-- Прогресс -->
-            <div id="musicProgress" class="music-progress" style="display:none">
-                <div class="music-progress-bar" id="musicProgressBar" onclick="seekMusic(event)">
-                    <div class="music-progress-fill" id="musicProgressFill"></div>
-                </div>
-                <div class="music-progress-times">
-                    <span id="musicCurrentTime">0:00</span>
-                    <span id="musicDuration">0:00</span>
-                </div>
-            </div>
-
-            <!-- Список треков -->
-            <div id="musicTrackList" class="music-track-list"></div>
-            <div id="musicLoading" class="music-loading" style="display:none">
-                <i class="fas fa-spinner fa-spin"></i> Загрузка...
-            </div>
-        </div>
-    </div>
-</div>
-<audio id="jamendoAudio" preload="none"></audio>
 </body>
 </html>
