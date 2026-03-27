@@ -1189,7 +1189,6 @@ function addMessage(user, text, messageId = null, isRead = false) {
     const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
     const voiceMatch   = text.match(/\[VOICE(?::(\d+))?\](.*?)\[\/VOICE\]/)
     const videoMatch   = text.match(/\[VIDEO(?::(\d+))?\](.*?)\[\/VIDEO\]/)
-    const musicMatch   = text.match(/\[MUSIC\](.+?)\[\/MUSIC\]/)
 
     if (videoMatch) {
         div.className = 'message me-video ' + (isMe ? 'me' : 'other')
@@ -1198,22 +1197,6 @@ function addMessage(user, text, messageId = null, isRead = false) {
         const vidDuration = parseInt(videoMatch[1] || '0')
         const player = createVideoPlayer(vidUrl, isMe, vidDuration)
         div.appendChild(player)
-        if (isMe) {
-            const ticks = document.createElement('span')
-            ticks.className = `msg-ticks sticker-ticks${isRead ? ' read' : ''}`
-            ticks.innerHTML = '<i class="fas fa-check"></i><i class="fas fa-check tick-second"></i>'
-            div.appendChild(ticks)
-        }
-    } else if (musicMatch) {
-        div.className = 'message music-message ' + (isMe ? 'me' : 'other')
-        if (messageId) div.dataset.messageId = messageId
-        try {
-            const trackData = JSON.parse(musicMatch[1])
-            const card = createMusicCard(trackData, isMe)
-            div.appendChild(card)
-        } catch(e) {
-            div.textContent = '🎵 Музыкальный трек'
-        }
         if (isMe) {
             const ticks = document.createElement('span')
             ticks.className = `msg-ticks sticker-ticks${isRead ? ' read' : ''}`
@@ -1941,9 +1924,19 @@ function updateInputButtons() {
     const sendBtn  = document.getElementById('sendBtn')
     const voiceBtn = document.getElementById('voiceBtn')
     const videoBtn = document.getElementById('videomsgBtn')
-    if (sendBtn)  sendBtn.style.display  = hasText ? 'flex' : 'none'
-    if (voiceBtn) voiceBtn.style.display = hasText ? 'none' : 'flex'
-    if (videoBtn) videoBtn.style.display = hasText ? 'none' : 'flex'
+
+    if (sendBtn) {
+        sendBtn.classList.toggle('btn-visible', hasText)
+        sendBtn.classList.toggle('btn-hidden',  !hasText)
+    }
+    if (voiceBtn) {
+        voiceBtn.classList.toggle('btn-hidden',  hasText)
+        voiceBtn.classList.toggle('btn-visible', !hasText)
+    }
+    if (videoBtn) {
+        videoBtn.classList.toggle('btn-hidden',  hasText)
+        videoBtn.classList.toggle('btn-visible', !hasText)
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2240,7 +2233,6 @@ function formatLastMessage(text) {
     if (text.match(/^\[VOICE/))   return '🎤 Голосовое сообщение'
     if (text.match(/^\[STICKER/)) return '🖼 Стикер'
     if (text.match(/^\[FWD:/))    return '↩ Пересланное сообщение'
-    if (text.match(/^\[MUSIC/))  return '🎵 Музыкальный трек'
     return text
 }
 
@@ -2866,15 +2858,7 @@ function connect() {
                     }, 3000)
                 }
             }
-            if (data.action === 'music_status') {
-                // Обновляем статус "слушает" в профиле если открыт
-                const statusEl = document.getElementById('modalStatus')
-                if (statusEl && document.getElementById('profileModal')._profilePhone === data.phone && data.is_playing) {
-                    const oldStatus = statusEl.innerHTML
-                    statusEl.innerHTML = `<span style="color:var(--accent)">🎵 Слушает: ${escapeHtml(data.track_name)} — ${escapeHtml(data.artist_name)}</span>`
-                    setTimeout(() => { if (statusEl.innerHTML.includes('Слушает')) statusEl.innerHTML = oldStatus }, 30000)
-                }
-            }
+
         }
 
         ws.onclose = () => {
@@ -4451,257 +4435,3 @@ window.resetChatTheme      = resetChatTheme
 window.previewChatBubble   = previewChatBubble
 window.previewChatWallpaper = previewChatWallpaper
 window.handleChatWallpaperUpload = handleChatWallpaperUpload
-
-// ============= JAMENDO МУЗЫКАЛЬНЫЙ ПЛЕЕР =============
-
-let currentTrack = null
-let musicPlaying = false
-let musicSearchTimeout = null
-let musicTracks = []
-
-const audio = () => document.getElementById('jamendoAudio')
-
-function openMusicPlayer() {
-    const modal = document.getElementById('musicPlayerModal')
-    modal.style.display = 'flex'
-    if (!musicTracks.length) loadTrendingTracks()
-}
-function closeMusicPlayer() {
-    document.getElementById('musicPlayerModal').style.display = 'none'
-}
-
-async function loadTrendingTracks() {
-    showMusicLoading(true)
-    try {
-        const res = await fetch('/api/jamendo/trending?limit=30')
-        const data = await res.json()
-        if (data.ok) renderTrackList(data.tracks)
-        else showToast('Jamendo недоступен — добавьте JAMENDO_CLIENT_ID')
-    } catch(e) {
-        showToast('Ошибка загрузки музыки')
-    }
-    showMusicLoading(false)
-}
-
-function onMusicSearch(q) {
-    clearTimeout(musicSearchTimeout)
-    document.getElementById('musicSearchClear').style.display = q ? 'block' : 'none'
-    if (!q) { loadTrendingTracks(); return }
-    musicSearchTimeout = setTimeout(async () => {
-        showMusicLoading(true)
-        try {
-            const res = await fetch(`/api/jamendo/search?q=${encodeURIComponent(q)}&limit=30`)
-            const data = await res.json()
-            if (data.ok) renderTrackList(data.tracks)
-        } catch(e) {}
-        showMusicLoading(false)
-    }, 400)
-}
-
-function clearMusicSearch() {
-    document.getElementById('musicSearchInput').value = ''
-    document.getElementById('musicSearchClear').style.display = 'none'
-    loadTrendingTracks()
-}
-
-function renderTrackList(tracks) {
-    musicTracks = tracks
-    const list = document.getElementById('musicTrackList')
-    list.innerHTML = ''
-    if (!tracks.length) {
-        list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary)">Ничего не найдено</div>'
-        return
-    }
-    tracks.forEach((t, i) => {
-        const el = document.createElement('div')
-        el.className = 'music-track-item' + (currentTrack?.id === t.id ? ' active' : '')
-        const dur = t.duration ? `${Math.floor(t.duration/60)}:${(t.duration%60).toString().padStart(2,'0')}` : '0:30'
-        el.innerHTML = `
-            <img src="${t.image || ''}" onerror="this.style.display='none'" class="music-track-cover">
-            <div class="music-track-info">
-                <div class="music-track-title">${escapeHtml(t.name)}</div>
-                <div class="music-track-artist">${escapeHtml(t.artist_name)} · <span style="opacity:0.7">${dur}</span></div>
-            </div>
-            <div class="music-track-actions">
-                <button class="music-mini-btn" onclick="playTrack(${i})" title="Играть">
-                    <i class="fas fa-${currentTrack?.id === t.id && musicPlaying ? 'pause' : 'play'}"></i>
-                </button>
-                <button class="music-mini-btn" onclick="shareMusicTrackById(${i})" title="Поделиться">
-                    <i class="fas fa-share"></i>
-                </button>
-            </div>`
-        list.appendChild(el)
-    })
-}
-
-function showMusicLoading(show) {
-    document.getElementById('musicLoading').style.display = show ? 'flex' : 'none'
-}
-
-function playTrack(idx) {
-    const track = musicTracks[idx]
-    if (!track?.audio) { showToast('Нет превью для этого трека'); return }
-
-    currentTrack = track
-    musicPlaying = true
-
-    // Обновляем UI плеера
-    document.getElementById('musicNowPlaying').style.display = 'flex'
-    document.getElementById('musicProgress').style.display = 'block'
-    document.getElementById('musicCover').src = track.image || ''
-    document.getElementById('musicTrackName').textContent = track.name
-    document.getElementById('musicArtistName').textContent = track.artist_name
-    document.getElementById('musicPlayBtn').innerHTML = '<i class="fas fa-pause"></i>'
-
-    // Аудио
-    const a = audio()
-    a.src = track.audio
-    a.play().catch(() => showToast('Ошибка воспроизведения'))
-
-    // Обновляем список
-    renderTrackList(musicTracks)
-
-    // Статус "слушает"
-    updateMusicStatus(track, true)
-}
-
-function toggleMusicPlay() {
-    const a = audio()
-    if (musicPlaying) {
-        a.pause()
-        musicPlaying = false
-        document.getElementById('musicPlayBtn').innerHTML = '<i class="fas fa-play"></i>'
-        updateMusicStatus(currentTrack, false)
-    } else {
-        a.play()
-        musicPlaying = true
-        document.getElementById('musicPlayBtn').innerHTML = '<i class="fas fa-pause"></i>'
-        updateMusicStatus(currentTrack, true)
-    }
-}
-
-function initMusicAudio() {
-    const a = document.getElementById('jamendoAudio')
-    if (!a) return
-    a.addEventListener('timeupdate', () => {
-        if (!a.duration) return
-        const pct = (a.currentTime / a.duration) * 100
-        const fill = document.getElementById('musicProgressFill')
-        const cur  = document.getElementById('musicCurrentTime')
-        const dur  = document.getElementById('musicDuration')
-        if (fill) fill.style.width = pct + '%'
-        if (cur)  cur.textContent  = fmtTime(a.currentTime)
-        if (dur)  dur.textContent  = fmtTime(a.duration)
-    })
-    a.addEventListener('ended', () => {
-        musicPlaying = false
-        const btn = document.getElementById('musicPlayBtn')
-        if (btn) btn.innerHTML = '<i class="fas fa-play"></i>'
-        updateMusicStatus(currentTrack, false)
-    })
-}
-
-function seekMusic(e) {
-    const bar = document.getElementById('musicProgressBar')
-    const pct = (e.clientX - bar.getBoundingClientRect().left) / bar.offsetWidth
-    const a = audio()
-    if (a.duration) a.currentTime = a.duration * pct
-}
-
-function fmtTime(s) {
-    s = Math.floor(s || 0)
-    return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`
-}
-
-// Поделиться треком в чат
-function shareMusicTrack() { if (currentTrack) shareMusicTrackObj(currentTrack) }
-function shareMusicTrackById(idx) { shareMusicTrackObj(musicTracks[idx]) }
-
-function shareMusicTrackObj(track) {
-    if (!currentChat) { showToast('Выберите чат'); return }
-    const msg = `[MUSIC]${JSON.stringify({
-        id: track.id,
-        name: track.name,
-        artist: track.artist_name,
-        cover: track.image,
-        audio: track.audio,
-        url: track.shareurl,
-        duration: track.duration || 0
-    })}[/MUSIC]`
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: 'send', to: currentChat, text: msg }))
-        showToast('Трек отправлен в чат 🎵')
-        closeMusicPlayer()
-    }
-}
-
-// Статус "слушает"
-async function updateMusicStatus(track, isPlaying) {
-    if (!currentUser || !track) return
-    try {
-        await fetch(`/api/music-status/${encodeURIComponent(currentUser)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                track_id: track.id,
-                track_name: track.name,
-                artist_name: track.artist_name,
-                cover_url: track.image || '',
-                preview_url: track.audio || '',
-                jamendo_url: track.shareurl || '',
-                duration: track.duration || 0,
-                is_playing: isPlaying
-            })
-        })
-    } catch(e) {}
-}
-
-// Рендер музыкальной карточки в чате
-function createMusicCard(data, isMe) {
-    const wrap = document.createElement('div')
-    wrap.className = `music-card ${isMe ? 'me' : 'other'}`
-
-    let isPlaying = false
-    const audioEl = new Audio(data.audio)
-
-    wrap.innerHTML = `
-        <img class="music-card-cover" src="${data.cover || ''}" onerror="this.style.display='none'">
-        <div class="music-card-info">
-            <div class="music-card-name">${escapeHtml(data.name)}</div>
-            <div class="music-card-artist">${escapeHtml(data.artist)}</div>
-            <div class="music-card-label">Deezer · 30 сек превью</div>
-        </div>
-        <button class="music-card-play"><i class="fas fa-play"></i></button>`
-
-    const btn = wrap.querySelector('.music-card-play')
-    btn.onclick = () => {
-        if (isPlaying) {
-            audioEl.pause()
-            btn.innerHTML = '<i class="fas fa-play"></i>'
-        } else {
-            // Останавливаем другие
-            document.querySelectorAll('.music-card-play').forEach(b => {
-                if (b !== btn) b.innerHTML = '<i class="fas fa-play"></i>'
-            })
-            audioEl.play().catch(() => showToast('Ошибка воспроизведения'))
-            btn.innerHTML = '<i class="fas fa-pause"></i>'
-        }
-        isPlaying = !isPlaying
-    }
-    audioEl.addEventListener('ended', () => {
-        isPlaying = false
-        btn.innerHTML = '<i class="fas fa-play"></i>'
-    })
-
-    return wrap
-}
-
-window.openMusicPlayer  = openMusicPlayer
-window.closeMusicPlayer = closeMusicPlayer
-window.onMusicSearch    = onMusicSearch
-window.clearMusicSearch = clearMusicSearch
-window.playTrack        = playTrack
-window.toggleMusicPlay  = toggleMusicPlay
-window.seekMusic        = seekMusic
-window.shareMusicTrack  = shareMusicTrack
-window.shareMusicTrackById = shareMusicTrackById
