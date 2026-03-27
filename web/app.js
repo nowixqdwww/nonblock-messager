@@ -2309,34 +2309,49 @@ function createChatElement(chat) {
 }
 
 // Обновляет чат в списке: last message, unread badge, позиция
-async function updateChatInList(phone, lastText, incrementUnread = false) {
+// Кеш данных пользователей для мгновенного создания чатов
+const userCache = {}
+
+function updateChatInList(phone, lastText, incrementUnread = false) {
     const cleanPh = cleanPhone(phone)
     let chatEl = document.getElementById(`chat-${cleanPh}`)
     const list = document.getElementById('chatList')
     if (!list) return
 
     if (!chatEl) {
-        // Чат не существует — загружаем данные пользователя и создаём элемент
-        try {
-            const res = await fetch(`/user/${phone}`)
-            const user = await res.json()
-            const displayName = user.name || user.username || phone
-            const avatarHtml = user.avatar
-                ? `<img src="/avatars/${user.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
-                : `<span>${displayName[0]?.toUpperCase() || '?'}</span>`
-            chatEl = document.createElement('div')
-            chatEl.className = 'chatItem'
-            chatEl.id = `chat-${cleanPh}`
-            chatEl.innerHTML = `
-                <div class="chat-avatar">${avatarHtml}</div>
-                <div class="chat-info">
-                    <div class="chat-name">${escapeHtml(displayName)}</div>
-                    <div class="chat-last-message">${formatLastMessage(lastText || '')}</div>
-                </div>
-                <div class="chat-status ${user.online ? '' : 'offline'}"></div>`
-            chatEl.onclick = () => openChat(phone, displayName)
-            list.prepend(chatEl)
-        } catch(e) { return }
+        // Создаём элемент немедленно из кеша или с минимальными данными
+        const cached = userCache[phone]
+        const displayName = cached?.name || cached?.username || phone
+        const avatarHtml = cached?.avatar
+            ? `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+            : `<span>${(displayName[0] || '?').toUpperCase()}</span>`
+        chatEl = document.createElement('div')
+        chatEl.className = 'chatItem'
+        chatEl.id = `chat-${cleanPh}`
+        chatEl.innerHTML = `
+            <div class="chat-avatar">${avatarHtml}</div>
+            <div class="chat-info">
+                <div class="chat-name">${escapeHtml(displayName)}</div>
+                <div class="chat-last-message">${formatLastMessage(lastText || '')}</div>
+            </div>
+            <div class="chat-status offline"></div>`
+        chatEl.onclick = () => openChat(phone, displayName)
+        list.prepend(chatEl)
+
+        // Фоново загружаем данные и обновляем
+        fetch(`/user/${encodeURIComponent(phone)}`)
+            .then(r => r.json())
+            .then(user => {
+                userCache[phone] = user
+                const nameEl = chatEl.querySelector('.chat-name')
+                if (nameEl) nameEl.textContent = user.name || user.username || phone
+                const av = chatEl.querySelector('.chat-avatar')
+                if (av && user.avatar) av.innerHTML = `<img src="${user.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+                const dot = chatEl.querySelector('.chat-status')
+                if (dot) dot.className = `chat-status ${user.online ? '' : 'offline'}`
+                chatEl.onclick = () => openChat(phone, user.name || user.username || phone)
+            }).catch(() => {})
+
         if (incrementUnread) {
             const badge = document.createElement('div')
             badge.className = 'unread-badge'
@@ -2402,6 +2417,7 @@ async function loadChats() {
         })
         
         chats.forEach(chat => {
+            userCache[chat.phone] = chat  // кешируем
             list.appendChild(createChatElement(chat))
         })
         
@@ -2428,6 +2444,7 @@ function openChat(phone, displayName) {
             const name = user.name || user.username || phone
             document.getElementById('chatUserName').innerText = name
             // Сохраняем last_seen
+            userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             
@@ -2748,12 +2765,13 @@ function connect() {
                         const t = el.querySelector('.msg-ticks')
                         if (t) {
                             t.classList.add('read')
-                            // Показываем вторую галочку если скрыта
                             const tick2 = t.querySelector('.tick-second')
                             if (tick2) tick2.style.display = ''
                         }
                     }
                 })
+                // Скрываем unread badge в списке чатов для текущего собеседника
+                // (это наши исходящие были прочитаны — не трогаем badge)
             }
 
             if (data.action === 'message_deleted') {
@@ -2774,8 +2792,13 @@ function connect() {
                 // Добавляем в DOM только если это открытый чат
                 if (currentChat === data.from) {
                     addMessage(data.from, data.text, data.id, false)
-                    // Отмечаем прочитанным
+                    // Отмечаем прочитанным и скрываем badge
                     ws.send(JSON.stringify({ action: 'read', from: data.from, id: data.id }))
+                    const incomingChatEl = document.getElementById(`chat-${cleanPhone(data.from)}`)
+                    if (incomingChatEl) {
+                        const badge = incomingChatEl.querySelector('.unread-badge')
+                        if (badge) badge.remove()
+                    }
                 }
 
                 // Обновляем список чатов
