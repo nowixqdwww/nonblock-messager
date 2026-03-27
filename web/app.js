@@ -276,16 +276,37 @@ function updateOnlineStatus() {
 
 function broadcastOnlineStatus(isOnline) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return
-    
-    const chatElements = document.querySelectorAll('.chatItem')
-    chatElements.forEach(item => {
+    document.querySelectorAll('.chatItem').forEach(item => {
         const contactPhone = item.id.replace('chat-', '')
-        ws.send(JSON.stringify({
-            action: 'status',
-            to: contactPhone,
-            online: isOnline
-        }))
+        if (contactPhone) ws.send(JSON.stringify({ action: 'status', to: contactPhone, online: isOnline }))
     })
+}
+
+async function refreshOnlineStatuses() {
+    const phones = [...document.querySelectorAll('.chatItem')]
+        .map(el => el.id.replace('chat-', '')).filter(Boolean)
+    if (!phones.length) return
+    try {
+        const res = await fetch('/api/online-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones })
+        })
+        const statuses = await res.json()
+        phones.forEach(phone => {
+            const isOnline = statuses[phone] === true
+            if (!window.clients) window.clients = {}
+            window.clients[phone] = isOnline
+            // Обновляем точку статуса
+            const el = document.getElementById(`chat-${cleanPhone(phone)}`)
+            if (el) {
+                const dot = el.querySelector('.chat-status')
+                if (dot) dot.className = `chat-status ${isOnline ? '' : 'offline'}`
+            }
+            // Обновляем хедер если открытый чат
+            if (currentChat === phone) updateChatStatusText(phone, isOnline)
+        })
+    } catch(e) {}
 }
 
 // ============= ФУНКЦИИ ДЛЯ ПРОВЕРКИ ПАРОЛЯ =============
@@ -2316,7 +2337,6 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
     const cleanPh = cleanPhone(phone)
     let chatEl = document.getElementById(`chat-${cleanPh}`)
     const list = document.getElementById('chatList')
-    console.log('[updateChatInList]', phone, 'cleanPh=', cleanPh, 'chatEl=', !!chatEl, 'list=', !!list)
     if (!list) return
 
     if (!chatEl) {
@@ -2337,6 +2357,7 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
             </div>
             <div class="chat-status offline"></div>`
         chatEl.onclick = () => openChat(phone, displayName)
+        chatEl.style.animation = 'none'
         list.prepend(chatEl)
 
         // Фоново загружаем данные и обновляем
@@ -2383,7 +2404,9 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
         badge.style.display = 'flex'
     }
 
-    // Перемещаем наверх
+    // Перемещаем наверх без анимации
+    chatEl.style.animationDelay = '0ms'
+    chatEl.style.animation = 'none'
     list.prepend(chatEl)
 }
 
@@ -2458,6 +2481,7 @@ function openChat(phone, displayName) {
             
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             const isOnline = window.clients && window.clients[phone] === true
+            if (user.last_seen) lastSeenMap[phone] = user.last_seen
             updateChatStatusText(phone, isOnline)
         })
         .catch(() => {
@@ -2475,16 +2499,16 @@ function openChat(phone, displayName) {
     
     loadMessages()
     
-    // Сбрасываем unread badge
+    // Сбрасываем unread badge и активный класс
+    document.querySelectorAll('.chatItem').forEach(el => {
+        el.classList.remove('active')
+    })
     const chatElCurrent = document.getElementById(`chat-${cleanPhone(phone)}`)
     if (chatElCurrent) {
         const badge = chatElCurrent.querySelector('.unread-badge')
         if (badge) badge.remove()
         chatElCurrent.classList.add('active')
     }
-    document.querySelectorAll('.chatItem').forEach(el => {
-        if (el.id !== `chat-${cleanPhone(phone)}`) el.classList.remove('active')
-    })
     
     const activeChat = document.getElementById(`chat-${cleanPhone(phone)}`)
     if (activeChat) {
@@ -2722,6 +2746,9 @@ function connect() {
                     ws.send(JSON.stringify({ action: 'ping' }))
                 }
             }, 30000)
+            // Обновляем онлайн-статусы каждые 15 секунд
+            window._statusInterval = setInterval(refreshOnlineStatuses, 15000)
+            refreshOnlineStatuses()
         }
 
         ws.onmessage = (event) => {
@@ -2730,7 +2757,6 @@ function connect() {
             if (data.action === 'pong') return
 
             if (data.action === 'status') {
-                console.log('[WS status]', data)
                 if (data.from) {
                     if (!window.clients) window.clients = {}
                     window.clients[data.from] = data.online
@@ -2754,7 +2780,6 @@ function connect() {
             }
 
             if (data.action === 'last_seen') {
-                console.log('[WS last_seen]', data)
                 if (data.from && data.last_seen) {
                     lastSeenMap[data.from] = data.last_seen
                     if (currentChat === data.from) updateChatStatusText(data.from, false)
@@ -2762,7 +2787,6 @@ function connect() {
             }
 
             if (data.action === 'messages_read') {
-                console.log('[WS messages_read]', data.ids)
                 if (data.ids) data.ids.forEach(id => {
                     const el = document.querySelector(`[data-message-id="${id}"]`)
                     if (el) {
@@ -2854,6 +2878,7 @@ function connect() {
         }
 
         ws.onclose = () => {
+            if (window._statusInterval) { clearInterval(window._statusInterval); window._statusInterval = null }
             broadcastOnlineStatus(false)
             
             if (window.clients) {
