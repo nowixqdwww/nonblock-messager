@@ -1105,6 +1105,16 @@ async def get_music_status(phone: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.post("/api/online-status")
+async def online_status(request: Request):
+    """Возвращает онлайн-статус для списка телефонов."""
+    try:
+        data = await request.json()
+        phones = data.get("phones", [])
+        return {p: (p in clients) for p in phones}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/search")
 async def search_user(data: SearchUser):
     try:
@@ -1427,7 +1437,17 @@ async def websocket_endpoint(ws: WebSocket, user: str):
     await ws.accept()
     clients[user] = ws
     logger.info(f"User {user} connected. Total: {len(clients)}")
-    
+
+    # Уведомляем всех онлайн что этот юзер появился
+    for uid, ws2 in list(clients.items()):
+        if uid != user:
+            try:
+                await ws2.send_json({"action": "status", "from": user, "online": True})
+                # И сообщаем новому юзеру кто онлайн
+                await ws.send_json({"action": "status", "from": uid, "online": True})
+            except Exception:
+                pass
+
     try:
         while True:
             try:
@@ -1565,6 +1585,12 @@ async def websocket_endpoint(ws: WebSocket, user: str):
     finally:
         clients.pop(user, None)
         logger.info(f"User {user} disconnected. Total: {len(clients)}")
+        # Уведомляем всех онлайн что юзер ушёл
+        for uid, ws2 in list(clients.items()):
+            try:
+                await ws2.send_json({"action": "status", "from": user, "online": False})
+            except Exception:
+                pass
         # Сохраняем last_seen
         try:
             conn = await get_db()
