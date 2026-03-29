@@ -29,15 +29,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Создаем папки для файлов
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AVATAR_DIR = os.path.join(BASE_DIR, "avatars")
 STICKER_DIR = os.path.join(BASE_DIR, "stickers")
 STATIC_DIR = os.path.join(BASE_DIR, "web", "static")
 
-os.makedirs(AVATAR_DIR, exist_ok=True)
-os.makedirs(STICKER_DIR, exist_ok=True)
-os.makedirs(STATIC_DIR, exist_ok=True)
+# Создаём директории безопасно
+for _d in [AVATAR_DIR, STICKER_DIR, STATIC_DIR]:
+    try: os.makedirs(_d, exist_ok=True)
+    except Exception: pass
 
 # Монтируем папки
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
@@ -50,7 +50,7 @@ DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = os.getenv("TOKEN", "")
+TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -253,9 +253,9 @@ async def init_db():
 async def startup():
     import asyncio
     # Создаём нужные директории
-    os.makedirs("web", exist_ok=True)
-    os.makedirs(AVATAR_DIR, exist_ok=True)
-    os.makedirs(STICKER_DIR, exist_ok=True)
+    for _d in [AVATAR_DIR, STICKER_DIR]:
+        try: os.makedirs(_d, exist_ok=True)
+        except Exception: pass
     # Запускаем init_db в фоне — сервер стартует немедленно даже если БД недоступна
     async def safe_init():
         try:
@@ -272,8 +272,8 @@ clients = {}
 class UserRegister(BaseModel):
     phone: str
     password: str
-    username: str = None
-    name: str = None
+    username: Optional[str] = None
+    name: Optional[str] = None
 
 class UserLogin(BaseModel):
     phone: str
@@ -284,9 +284,9 @@ class SetPassword(BaseModel):
     password: str
 
 class UpdateProfile(BaseModel):
-    username: str = None
-    name: str = None
-    bio: str = None
+    username: Optional[str] = None
+    name: Optional[str] = None
+    bio: Optional[str] = None
 
 class ChangePassword(BaseModel):
     phone: str
