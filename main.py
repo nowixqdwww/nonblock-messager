@@ -48,9 +48,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _raw_db_url = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 
-# ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
-# Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
+
+TG_BOT_TOKEN = "TOKEN"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
