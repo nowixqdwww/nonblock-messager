@@ -46,6 +46,16 @@
 
     /* Сообщения фон */
     --messages-bg: #f2f2f7;
+    --modal-bg: #ffffff;
+    --modal-overlay: rgba(0,0,0,0.4);
+    --ctx-menu-bg: rgba(255,255,255,0.97);
+    --ctx-menu-text: #1c1c1e;
+    --bg-input: #ffffff;
+    --border-strong: rgba(0,0,0,0.14);
+    --bubble-other: #ffffff;
+    --bubble-other-text: #1c1c1e;
+    --chat-header-bg: rgba(242,242,247,0.95);
+    --input-area-bg: rgba(242,242,247,0.95);
 
     --radius-sm: 10px;
     --radius-md: 14px;
@@ -1513,6 +1523,7 @@ body {
 }
 
 .profile-view-field {
+    background: var(--modal-bg);
     border: 1px solid var(--border);
     padding: 15px 0;
 }
@@ -1703,6 +1714,8 @@ body {
 /* Settings styles */
 .settings-section {
     margin-bottom: 30px;
+    background: var(--modal-bg);
+    color: var(--text-primary);
 }
 
 .settings-section h3 {
@@ -1726,7 +1739,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 12px 0;
-    border-bottom: 1px solid #f5f5f5;
+    border-bottom: 1px solid var(--border);
 }
 
 .settings-item:last-child {
@@ -4273,3 +4286,24 @@ body { background: var(--bg-primary); }
 .emoji-search { background: var(--bg-input) !important; color: var(--text-primary) !important; border-color: var(--border) !important; }
 .emoji-category-btn { color: var(--text-secondary) !important; }
 .emoji-category-btn.active { color: var(--accent) !important; }
+
+/* ── Плавное переключение темы ── */
+*, *::before, *::after {
+    transition:
+        background-color 0.2s ease,
+        color 0.15s ease,
+        border-color 0.15s ease,
+        box-shadow 0.15s ease !important;
+}
+/* Исключаем анимируемые элементы */
+.message, .chatItem, .modal-content,
+button, input, textarea, select,
+.send-btn, .voice-btn, img, video,
+.voice-wave-bar, .ring-fill,
+[class*="spinner"], [class*="fa-spin"] {
+    transition: none !important;
+}
+/* Кнопки — только своя анимация */
+.send-btn { transition: transform 0.15s, opacity 0.15s !important; }
+.voice-btn { transition: background 0.15s, transform 0.15s !important; }
+button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 0.1s, opacity 0.15s !important; }
