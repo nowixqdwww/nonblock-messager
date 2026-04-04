@@ -48,8 +48,9 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 _raw_db_url = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 
-
-TG_BOT_TOKEN = "TOKEN"
+# ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
+# Получить: https://t.me/BotFather → /newbot → скопировать токен
+TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -718,7 +719,7 @@ async def import_sticker_pack(phone: str, request: Request):
         token = TG_BOT_TOKEN.strip()  # убираем случайные пробелы/переносы
         if not token or token == "ВСТАВЬТЕ_ТОКЕН_СЮДА":
             return JSONResponse(status_code=400, content={
-                "error": "Токен бота не настроен. Напишите @monkkiq в Telegram или на почту supp-nonblock@yandex.com"
+                "error": "Токен бота не настроен. Вставьте токен в переменную TG_BOT_TOKEN в main.py"
             })
         if ":" not in token:
             return JSONResponse(status_code=400, content={
@@ -1536,6 +1537,20 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             })
                         except:
                             clients.pop(to, None)
+
+                # ── WebRTC сигналинг ──────────────────────────
+                elif action in ("call_offer", "call_answer", "call_ice", "call_reject", "call_end", "call_busy"):
+                    to = data.get("to")
+                    if to and to in clients:
+                        try:
+                            payload = {k: v for k, v in data.items()}
+                            payload["from"] = user
+                            await clients[to].send_json(payload)
+                        except:
+                            clients.pop(to, None)
+                    # Если вызываемый не онлайн
+                    elif action == "call_offer" and to not in clients:
+                        await ws.send_json({"action": "call_end", "from": to, "reason": "offline"})
 
                 elif action == "status":
                     to = data.get("to")
