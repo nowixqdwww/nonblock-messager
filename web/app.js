@@ -4499,6 +4499,12 @@ async function startCall(type) {
         document.getElementById('toggleCamBtn').style.display = 'flex'
     }
 
+    // Разлочиваем AudioContext
+    try {
+        const tmpCtx = new (window.AudioContext || window.webkitAudioContext)()
+        tmpCtx.resume().then(() => tmpCtx.close())
+    } catch(e) {}
+
     peerConnection = new RTCPeerConnection(STUN_SERVERS)
     setupPeerEvents()
     localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream))
@@ -4526,6 +4532,7 @@ async function startCall(type) {
 // ── Принять входящий звонок ───────────────────────────────
 async function acceptCall(withVideo) {
     if (!incomingOffer) return
+    stopRingtone()
     hideIncomingCallScreen()
 
     callDirection = 'incoming'
@@ -4533,7 +4540,12 @@ async function acceptCall(withVideo) {
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                sampleRate: 48000
+            },
             video: useVideo ? { facingMode: 'user', width: 640, height: 640 } : false
         })
     } catch(e) {
@@ -4559,6 +4571,12 @@ async function acceptCall(withVideo) {
     ws.send(JSON.stringify({ action: 'call_answer', to: callPeer, sdp: answer.sdp }))
     incomingOffer = null
     startCallTimer()
+
+    // Разлочиваем AudioContext (нужно внутри user gesture)
+    try {
+        const tmpCtx = new (window.AudioContext || window.webkitAudioContext)()
+        tmpCtx.resume().then(() => tmpCtx.close())
+    } catch(e) {}
 }
 
 // ── Отклонить входящий ───────────────────────────────────
@@ -4636,10 +4654,13 @@ function setupPeerEvents() {
     peerConnection.onconnectionstatechange = () => {
         const state = peerConnection?.connectionState
         if (state === 'connected') {
+            stopRingtone()
             playCallConnectedSound()
             startCallTimer()
-            document.getElementById('activeCallStatus').style.display = 'none'
-            document.getElementById('callTimer').style.display = 'block'
+            const stEl = document.getElementById('activeCallStatus')
+            const tmEl = document.getElementById('callTimer')
+            if (stEl) stEl.style.display = 'none'
+            if (tmEl) tmEl.style.display = 'block'
         } else if (state === 'failed' || state === 'disconnected') {
             showToast('Соединение прервано')
             endCall()
@@ -4676,6 +4697,10 @@ async function handleCallSignal(data) {
         case 'call_answer':
             if (!peerConnection) return
             clearTimeout(window._callTimeout)
+            stopRingtone()
+            // Обновляем статус у звонящего
+            const answerStatusEl = document.getElementById('activeCallStatus')
+            if (answerStatusEl) answerStatusEl.textContent = 'Соединение...'
             await peerConnection.setRemoteDescription({ type: 'answer', sdp: data.sdp })
             break
 
@@ -4687,17 +4712,23 @@ async function handleCallSignal(data) {
             break
 
         case 'call_reject':
+            stopRingtone()
+            playCallDeclinedSound()
             showToast('Звонок отклонён')
             cleanupCall()
             break
 
         case 'call_end':
+            stopRingtone()
+            playCallEndSound()
             if (data.reason === 'offline') showToast('Пользователь не в сети')
             else showToast('Звонок завершён')
             cleanupCall()
             break
 
         case 'call_busy':
+            stopRingtone()
+            playCallDeclinedSound()
             showToast('Абонент занят')
             cleanupCall()
             break
