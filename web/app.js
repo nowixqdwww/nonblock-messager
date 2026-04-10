@@ -4505,11 +4505,12 @@ async function startCall(type) {
         tmpCtx.resume().then(() => tmpCtx.close())
     } catch(e) {}
 
+    _callConnectedFired = false
     peerConnection = new RTCPeerConnection(STUN_SERVERS)
     setupPeerEvents()
     localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream))
 
-    const offer = await peerConnection.createOffer()
+    const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: callType === 'video' })
     await peerConnection.setLocalDescription(offer)
 
     ws.send(JSON.stringify({
@@ -4560,6 +4561,7 @@ async function acceptCall(withVideo) {
         document.getElementById('toggleCamBtn').style.display = 'flex'
     }
 
+    _callConnectedFired = false
     peerConnection = new RTCPeerConnection(STUN_SERVERS)
     setupPeerEvents()
     localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream))
@@ -4591,7 +4593,11 @@ function rejectCall() {
 function endCall() {
     stopRingtone()
     clearTimeout(window._callTimeout)
-    if (callPeer) sendCallSignal('call_end', callPeer)
+    const peer = callPeer  // сохраняем до cleanupCall который обнуляет
+    if (peer) {
+        ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ action: 'call_end', to: peer }))
+    }
+    playCallEndSound()
     cleanupCall()
 }
 
@@ -4613,6 +4619,7 @@ function cleanupCall() {
 function resetCallState() {
     callType = null; callDirection = null; callPeer = null
     micMuted = false; camOff = false; incomingOffer = null
+    _callConnectedFired = false
 }
 
 // ── PeerConnection события ───────────────────────────────
@@ -4653,29 +4660,37 @@ function setupPeerEvents() {
 
     peerConnection.onconnectionstatechange = () => {
         const state = peerConnection?.connectionState
-        if (state === 'connected') {
-            stopRingtone()
-            playCallConnectedSound()
-            startCallTimer()
-            const stEl = document.getElementById('activeCallStatus')
-            const tmEl = document.getElementById('callTimer')
-            if (stEl) stEl.style.display = 'none'
-            if (tmEl) tmEl.style.display = 'block'
-        } else if (state === 'failed' || state === 'disconnected') {
+        if (state === 'connected') onCallConnected()
+        else if (state === 'failed' || state === 'disconnected') {
             showToast('Соединение прервано')
-            endCall()
+            cleanupCall()
         }
     }
 
+    // Fallback для mobile Safari — connectionState может не обновляться
     peerConnection.oniceconnectionstatechange = () => {
         const s = peerConnection?.iceConnectionState
-        if (s === 'connected' || s === 'completed') {
-            playCallConnectedSound()
-            startCallTimer()
-            document.getElementById('activeCallStatus').style.display = 'none'
-            document.getElementById('callTimer').style.display = 'block'
+        if (s === 'connected' || s === 'completed') onCallConnected()
+        else if (s === 'failed' || s === 'disconnected') {
+            showToast('Соединение прервано')
+            cleanupCall()
         }
     }
+}
+
+// Вызывается при успешном соединении (один раз)
+let _callConnectedFired = false
+function onCallConnected() {
+    if (_callConnectedFired) return
+    _callConnectedFired = true
+    stopRingtone()
+    playCallConnectedSound()
+    stopCallTimer()
+    startCallTimer()
+    const stEl = document.getElementById('activeCallStatus')
+    const tmEl = document.getElementById('callTimer')
+    if (stEl) stEl.style.display = 'none'
+    if (tmEl) { tmEl.textContent = '0:00'; tmEl.style.display = 'block' }
 }
 
 // ── Обработка входящих сигналов (в WS onmessage) ─────────
@@ -4698,9 +4713,6 @@ async function handleCallSignal(data) {
             if (!peerConnection) return
             clearTimeout(window._callTimeout)
             stopRingtone()
-            // Обновляем статус у звонящего
-            const answerStatusEl = document.getElementById('activeCallStatus')
-            if (answerStatusEl) answerStatusEl.textContent = 'Соединение...'
             await peerConnection.setRemoteDescription({ type: 'answer', sdp: data.sdp })
             break
 
